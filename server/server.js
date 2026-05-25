@@ -180,28 +180,39 @@ function tickGame(gs, dt) {
       }
     }
 
-    // Movement
-    if (!p.moving && p.inputDir !== null) {
-      const nx = p.tx + DX[p.inputDir];
-      const ny = p.ty + DY[p.inputDir];
-      if (!solidAt(gs.grid, nx, ny)) {
-        p.moving = true;
-        p.tx = nx;
-        p.ty = ny;
-        p.swordDir = { x: DX[p.inputDir], y: DY[p.inputDir] };
-      }
-      p.inputDir = null;
-    }
-
+    // Movement — continuous while key held, snaps to tile grid
+    const SPEED = TILE * 7; // pixels per second
     if (p.moving) {
       const tx = p.tx * TILE + TILE / 2;
       const ty = p.ty * TILE + TILE / 2;
       const dx = tx - p.px;
       const dy = ty - p.py;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const step = TILE * 0.25;
-      if (dist <= step) { p.px = tx; p.py = ty; p.moving = false; }
-      else { p.px += (dx / dist) * step; p.py += (dy / dist) * step; }
+      const step = SPEED * dt;
+      if (dist <= step) {
+        p.px = tx; p.py = ty; p.moving = false;
+        // Immediately start next tile if key still held in same direction
+        if (p.inputDir !== null) {
+          const nx = p.tx + DX[p.inputDir];
+          const ny = p.ty + DY[p.inputDir];
+          if (!solidAt(gs.grid, nx, ny)) {
+            p.moving = true;
+            p.tx = nx; p.ty = ny;
+            p.swordDir = { x: DX[p.inputDir], y: DY[p.inputDir] };
+          }
+        }
+      } else {
+        p.px += (dx / dist) * step;
+        p.py += (dy / dist) * step;
+      }
+    } else if (p.inputDir !== null) {
+      const nx = p.tx + DX[p.inputDir];
+      const ny = p.ty + DY[p.inputDir];
+      if (!solidAt(gs.grid, nx, ny)) {
+        p.moving = true;
+        p.tx = nx; p.ty = ny;
+        p.swordDir = { x: DX[p.inputDir], y: DY[p.inputDir] };
+      }
     }
 
     // Mine placement
