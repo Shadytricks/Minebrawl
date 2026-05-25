@@ -250,6 +250,15 @@ function detectSounds(gs){
   prevOver=gs.over||false;
 }
 
+// ── Color utils ───────────────────────────────────────────────────────────────
+const DARK_MAP = {
+  "#e8b84b":"#a07820",
+  "#4ade80":"#16a34a",
+  "#f87171":"#dc2626",
+  "#38bdf8":"#0284c7",
+};
+function darkenColor(col){ return DARK_MAP[col]||"#334155"; }
+
 // ── Sprite drawing ────────────────────────────────────────────────────────────
 function drawSprite(ctx,col,dark,cx,cy,female=false){
   ctx.save();ctx.translate(cx,cy);
@@ -300,7 +309,7 @@ function buildHeroGrid(){
     div.onclick=()=>{selectHero(h.id);};
     // canvas preview
     const cv=document.createElement("canvas");cv.width=48;cv.height=58;cv.style.cssText="display:block;margin:0 auto 4px;image-rendering:pixelated;pointer-events:none;";
-    const ctx=cv.getContext("2d");drawSprite(ctx,h.color,h.dark,24,48,h.female);
+    const ctx=cv.getContext("2d");drawSprite(ctx,h.color,darkenColor(h.color),24,48,h.female);
     div.appendChild(cv);
     const nm=document.createElement("div");nm.className="hero-card-name";nm.textContent=h.name;div.appendChild(nm);
     const ab=document.createElement("div");ab.className="hero-card-ability";ab.textContent=h.ability;div.appendChild(ab);
@@ -340,7 +349,12 @@ function selectColor(c){
 function connect(cb){
   if(ws&&ws.readyState===WebSocket.OPEN){cb();return;}
   ws=new WebSocket(SERVER_URL);
-  ws.onopen=()=>{$("conn-dot").className="connected";cb();};
+  ws.onopen=()=>{
+    $("conn-dot").className="connected";
+    // Check for taken colors immediately
+    ws.send(JSON.stringify({type:"check_colors"}));
+    cb();
+  };
   ws.onerror=()=>{$("conn-dot").className="error";setErr("home-err","Cannot connect to server.");};
   ws.onclose=()=>{$("conn-dot").className="";};
   ws.onmessage=e=>handleMsg(JSON.parse(e.data));
@@ -356,7 +370,19 @@ function handleMsg(msg){
       break;
     case "lobby_state":
       if(msg.heroes)HEROES=msg.heroes;
-      renderLobby(msg);
+      if(msg.preview){
+        // Just update taken colors on home screen
+        const tc=msg.takenColors||[];
+        document.querySelectorAll(".color-btn").forEach(btn=>{
+          const c=btn.dataset.color;
+          const taken=tc.includes(c)&&c!==myColor;
+          btn.classList.toggle("taken",taken);
+          btn.querySelector(".taken-badge")?.remove();
+          if(taken){const b=document.createElement("span");b.className="taken-badge";b.textContent="TAKEN";btn.appendChild(b);}
+        });
+      } else {
+        renderLobby(msg);
+      }
       break;
     case "game_start":
       if(msg.heroes)HEROES=msg.heroes;
@@ -395,14 +421,13 @@ function copyCode(){
 }
 
 function renderLobby(msg){
-  const {players}=msg;
+  const {players, takenColors=[]}=msg;
   const me=players.find(p=>p.id===myId);
-  const takenColors=players.filter(p=>p.id!==myId).map(p=>p.color);
 
-  // Update taken colors on home screen
+  // Lock taken colors on home screen in real time
   document.querySelectorAll(".color-btn").forEach(btn=>{
     const c=btn.dataset.color;
-    const taken=takenColors.includes(c);
+    const taken=takenColors.includes(c)&&c!==myColor;
     btn.classList.toggle("taken",taken);
     btn.querySelector(".taken-badge")?.remove();
     if(taken){const b=document.createElement("span");b.className="taken-badge";b.textContent="TAKEN";btn.appendChild(b);}
@@ -593,7 +618,7 @@ function drawGame(gs){
       ctx.beginPath();ctx.arc(0,-8,20,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.restore();
     }
 
-    drawSprite(ctx,p.color,p.color.replace(/[^#]/g,'')+"99"||"#666",0,8,h.female);
+    drawSprite(ctx,p.color,darkenColor(p.color),0,8,h.female);
 
     // "You" ring
     if(p.id===myId){
