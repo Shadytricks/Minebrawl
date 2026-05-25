@@ -151,6 +151,11 @@ canvas{display:block;width:100%;border:2px solid var(--bord);border-radius:8px;i
         </div>
       </div>
     </div>
+    <div class="card">
+      <div class="clabel">Choose Your Hero</div>
+      <div id="home-hero-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;"></div>
+      <div id="home-hero-selected" style="font-size:10px;color:var(--muted);text-align:center;padding:4px;min-height:18px;"></div>
+    </div>
     <button class="btn btn-primary" onclick="createLobby()">＋ Create Lobby</button>
     <div class="divider">— or —</div>
     <div class="card">
@@ -300,35 +305,49 @@ function drawSprite(ctx,col,dark,cx,cy,female=false){
 }
 
 // ── Build hero picker ─────────────────────────────────────────────────────────
+function buildHeroCard(h, gridEl) {
+  const div=document.createElement("div");
+  div.className="hero-card";div.style.setProperty("--hcol",h.color);div.dataset.hero=h.id;
+  div.onclick=()=>selectHero(h.id);
+  const cv=document.createElement("canvas");cv.width=44;cv.height=52;cv.style.cssText="display:block;margin:0 auto 3px;image-rendering:pixelated;pointer-events:none;";
+  const ctx=cv.getContext("2d");drawSprite(ctx,h.color,darkenColor(h.color),22,42,h.female);
+  div.appendChild(cv);
+  const nm=document.createElement("div");nm.className="hero-card-name";nm.textContent=h.name;div.appendChild(nm);
+  const ab=document.createElement("div");ab.className="hero-card-ability";ab.textContent=h.ability;div.appendChild(ab);
+  const tt=document.createElement("div");tt.className="hero-tooltip";
+  tt.innerHTML=`<div class="tt-name">${h.name}</div><div class="tt-ability">⚡ ${h.ability}</div><div class="tt-desc">${h.desc}</div><div class="tt-cd">Cooldown: ${h.cooldown>0?h.cooldown+"s":"Passive"}</div><div class="tt-desc" style="margin-top:4px;color:#64748b">${h.summary}</div>`;
+  div.appendChild(tt);
+  gridEl.appendChild(div);
+}
+
 function buildHeroGrid(){
-  const grid=document.getElementById("hero-grid");
-  grid.innerHTML="";
+  const modalGrid=document.getElementById("hero-grid");
+  const homeGrid=document.getElementById("home-hero-grid");
+  if(modalGrid) modalGrid.innerHTML="";
+  if(homeGrid) homeGrid.innerHTML="";
   HEROES.forEach(h=>{
-    const div=document.createElement("div");
-    div.className="hero-card";div.style.setProperty("--hcol",h.color);div.dataset.hero=h.id;
-    div.onclick=()=>{selectHero(h.id);};
-    // canvas preview
-    const cv=document.createElement("canvas");cv.width=48;cv.height=58;cv.style.cssText="display:block;margin:0 auto 4px;image-rendering:pixelated;pointer-events:none;";
-    const ctx=cv.getContext("2d");drawSprite(ctx,h.color,darkenColor(h.color),24,48,h.female);
-    div.appendChild(cv);
-    const nm=document.createElement("div");nm.className="hero-card-name";nm.textContent=h.name;div.appendChild(nm);
-    const ab=document.createElement("div");ab.className="hero-card-ability";ab.textContent=h.ability;div.appendChild(ab);
-    // tooltip
-    const tt=document.createElement("div");tt.className="hero-tooltip";
-    tt.innerHTML=`<div class="tt-name">${h.name}</div><div class="tt-ability">⚡ ${h.ability}</div><div class="tt-desc">${h.desc}</div><div class="tt-cd">Cooldown: ${h.cooldown>0?h.cooldown+"s":"Passive"}</div><div class="tt-desc" style="margin-top:4px;color:#64748b">${h.summary}</div>`;
-    div.appendChild(tt);
-    grid.appendChild(div);
+    if(modalGrid) buildHeroCard(h, modalGrid);
+    if(homeGrid) buildHeroCard(h, homeGrid);
   });
 }
 
 function openHeroModal(){document.getElementById("hero-modal").classList.add("open");selectHero(myHero);}
-function closeHeroModal(){document.getElementById("hero-modal").classList.remove("open");send({type:"update_loadout",hero:myHero});}
+function closeHeroModal(){
+  document.getElementById("hero-modal").classList.remove("open");
+  if(ws&&ws.readyState===WebSocket.OPEN) send({type:"update_loadout",hero:myHero});
+}
 function selectHero(id){
   myHero=id;
+  const h=HEROES.find(h=>h.id===id);
+  // Update all hero cards in all grids
   document.querySelectorAll(".hero-card").forEach(c=>{
-    c.classList.toggle("selected",c.dataset.hero===id);
-    if(c.dataset.hero===id)c.style.setProperty("--hcol",HEROES.find(h=>h.id===id)?.color||"#fff");
+    const match=c.dataset.hero===id;
+    c.classList.toggle("selected",match);
+    if(match&&h) c.style.setProperty("--hcol",h.color);
   });
+  // Update home screen label
+  const lbl=document.getElementById("home-hero-selected");
+  if(lbl&&h) lbl.innerHTML=`<span style="color:${h.color};font-weight:bold">${h.name}</span> — ${h.ability}`;
 }
 
 // ── Client state ──────────────────────────────────────────────────────────────
@@ -672,7 +691,36 @@ document.addEventListener("keyup",e=>{keys[e.key]=false;});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 buildHeroGrid();
+selectHero("caesar");
 selectColor("#e8b84b");
+
+// Connect immediately on load to fetch taken colors
+(function initConnect(){
+  try {
+    const sock = new WebSocket(SERVER_URL);
+    sock.onopen = () => {
+      $("conn-dot").className = "connected";
+      sock.send(JSON.stringify({type:"check_colors"}));
+    };
+    sock.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if (msg.type==="lobby_state"&&msg.preview) {
+        const tc=msg.takenColors||[];
+        document.querySelectorAll(".color-btn").forEach(btn=>{
+          const c=btn.dataset.color;
+          const taken=tc.includes(c)&&c!==myColor;
+          btn.classList.toggle("taken",taken);
+          btn.querySelector(".taken-badge")?.remove();
+          if(taken){const b=document.createElement("span");b.className="taken-badge";b.textContent="TAKEN";btn.appendChild(b);}
+        });
+      }
+    };
+    sock.onclose = () => { $("conn-dot").className=""; };
+    sock.onerror = () => { $("conn-dot").className="error"; };
+    // Keep this socket as the main ws so it's ready when user clicks create/join
+    setTimeout(()=>{ if(sock.readyState===WebSocket.OPEN) ws=sock; }, 500);
+  } catch(e) {}
+})();
 </script>
 </body>
 </html>
