@@ -1,3 +1,4 @@
+// Mine Brawl Server v2
 const { WebSocketServer, WebSocket } = require("ws");
 
 const PORT = process.env.PORT || 8080;
