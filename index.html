@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💣 Mine Brawl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0a0a0f;
+    --surface:  #0f172a;
+    --surface2: #0a0a1a;
+    --border:   #1e293b;
+    --border2:  #334155;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --dimmer:   #334155;
+    --purple:   #a855f7;
+    --purple2:  #7c3aed;
+    --green:    #4ade80;
+    --red:      #f87171;
+    --amber:    #fbbf24;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px 12px 40px;
+  }
+
+  #app { width: 100%; max-width: 600px; }
+
+  /* ── Header ──────────────────────────────────────────────────────── */
+  .game-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(14px, 4vw, 20px);
+    text-align: center;
+    color: var(--purple);
+    letter-spacing: 3px;
+    margin-bottom: 4px;
+    padding-top: 8px;
+  }
+  .game-sub {
+    text-align: center;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  /* ── Screens ─────────────────────────────────────────────────────── */
+  .screen { display: none; animation: fadeUp 0.2s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ── Cards ───────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+  }
+  .card-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* ── Inputs ──────────────────────────────────────────────────────── */
+  input[type="text"] {
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 10px;
+  }
+  input[type="text"]:focus { border-color: var(--purple2); }
+  input[type="text"]::placeholder { color: var(--dimmer); }
+
+  .code-input {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 20px;
+    letter-spacing: 8px;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  /* ── Buttons ─────────────────────────────────────────────────────── */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    margin-bottom: 8px;
+  }
+  .btn:hover { background: var(--border); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+  .btn-primary { background: #2e1065; border-color: var(--purple2); color: #e9d5ff; }
+  .btn-primary:hover { background: #3b0764; border-color: var(--purple); }
+
+  .btn-success { background: #052e16; border-color: #16a34a; color: #86efac; }
+  .btn-success:hover { background: #14532d; }
+
+  .btn-ready-on { background: #14532d; border-color: var(--green); color: var(--green); }
+
+  .btn-danger { background: #450a0a; border-color: #dc2626; color: #fca5a5; }
+  .btn-danger:hover { background: #7f1d1d; }
+
+  .btn-sm {
+    display: inline-block;
+    width: auto;
+    padding: 6px 14px;
+    font-size: 10px;
+    margin: 0;
+  }
+
+  /* ── Avatar Picker ───────────────────────────────────────────────── */
+  .avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .avatar-btn {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    position: relative;
+    user-select: none;
+  }
+  .avatar-btn:hover { border-color: var(--border2); }
+  .avatar-btn.selected { border-color: var(--av-col); background: color-mix(in srgb, var(--av-col) 12%, var(--surface2)); }
+  .avatar-btn.taken { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+  .avatar-icon { font-size: 28px; display: block; margin-bottom: 5px; }
+  .avatar-label { font-size: 8px; color: var(--muted); letter-spacing: 1px; }
+  .avatar-btn.selected .avatar-label { color: var(--av-col); }
+  .taken-badge {
+    position: absolute;
+    top: 4px; right: 4px;
+    font-size: 7px;
+    background: var(--border);
+    color: var(--muted);
+    padding: 1px 5px;
+    border-radius: 3px;
+    pointer-events: none;
+  }
+
+  /* ── Divider ─────────────────────────────────────────────────────── */
+  .divider {
+    text-align: center;
+    color: var(--border2);
+    font-size: 10px;
+    letter-spacing: 4px;
+    margin: 14px 0;
+  }
+
+  /* ── Error / Status ──────────────────────────────────────────────── */
+  .error-msg {
+    min-height: 22px;
+    font-size: 10px;
+    color: var(--red);
+    text-align: center;
+    padding: 4px;
+    margin-top: 4px;
+  }
+  .status-line {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    padding: 8px;
+    letter-spacing: 1px;
+  }
+  .status-line em { color: var(--purple); font-style: normal; }
+
+  /* ── Lobby Code ──────────────────────────────────────────────────── */
+  .lobby-code-wrap { text-align: center; margin-bottom: 16px; }
+  .lobby-code-label { font-size: 9px; color: var(--muted); letter-spacing: 3px; margin-bottom: 8px; }
+  .lobby-code-val {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(20px, 6vw, 28px);
+    color: var(--purple);
+    letter-spacing: 8px;
+    padding: 12px 20px;
+    background: var(--surface2);
+    border: 1px solid #2d1b69;
+    border-radius: 8px;
+    display: inline-block;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    margin-bottom: 6px;
+  }
+  .lobby-code-val:hover { border-color: var(--purple2); }
+  .copied-hint { font-size: 9px; color: var(--green); opacity: 0; transition: opacity 0.3s; }
+  .copied-hint.visible { opacity: 1; }
+
+  /* ── Lobby Player Slots ──────────────────────────────────────────── */
+  .lobby-slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .lobby-slot {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 62px;
+  }
+  .lobby-slot.filled { border-color: #1e3a1e; }
+  .slot-avatar-icon { font-size: 24px; flex-shrink: 0; }
+  .slot-info { flex: 1; min-width: 0; }
+  .slot-name {
+    font-size: 11px;
+    color: var(--text);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .slot-status { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+  .slot-status.ready { color: var(--green); }
+  .slot-empty { font-size: 10px; color: var(--dimmer); letter-spacing: 2px; }
+  .ready-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); flex-shrink: 0; }
+  .ready-dot.ready { background: var(--green); box-shadow: 0 0 6px #4ade8066; }
+
+  /* ── Game Screen ─────────────────────────────────────────────────── */
+  #game-hud {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .p-hud {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 10px;
+    padding: 5px 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    min-width: 0;
+    transition: opacity 0.3s;
+  }
+  .p-hud.dead { opacity: 0.25; }
+  .p-hud .hud-name {
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
+  }
+  .p-hud .hud-hearts { font-size: 11px; letter-spacing: -1px; }
+
+  canvas {
+    display: block;
+    width: 100%;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    image-rendering: pixelated;
+  }
+
+  #game-controls {
+    text-align: center;
+    font-size: 9px;
+    color: var(--dimmer);
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Win Banner ──────────────────────────────────────────────────── */
+  #win-banner {
+    text-align: center;
+    padding: 20px;
+    background: var(--surface);
+    border: 2px solid var(--purple2);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    display: none;
+    animation: fadeUp 0.3s ease;
+  }
+  #win-banner h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(12px, 3vw, 16px);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  /* ── Connection indicator ────────────────────────────────────────── */
+  #conn-dot {
+    position: fixed;
+    bottom: 12px;
+    right: 14px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #334155;
+    transition: background 0.3s;
+  }
+  #conn-dot.connected { background: var(--green); box-shadow: 0 0 6px #4ade8066; }
+  #conn-dot.error { background: var(--red); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="game-title">💣 Mine Brawl</div>
+  <div class="game-sub">Online Multiplayer</div>
+
+  <!-- ── HOME ──────────────────────────────────────────────────────── -->
+  <div id="screen-home" class="screen active">
+    <div class="card">
+      <div class="card-label">Your Nickname</div>
+      <input type="text" id="input-name" placeholder="Enter nickname..." maxlength="12">
+    </div>
+
+    <div class="card">
+      <div class="card-label">Choose Avatar</div>
+      <div class="avatar-grid" id="avatar-grid">
+        <div class="avatar-btn" data-av="0" style="--av-col:#c084fc" onclick="selectAvatar(0)">
+          <span class="avatar-icon">🟣</span>
+          <span class="avatar-label">Purple</span>
+        </div>
+        <div class="avatar-btn" data-av="1" style="--av-col:#4ade80" onclick="selectAvatar(1)">
+          <span class="avatar-icon">🟢</span>
+          <span class="avatar-label">Green</span>
+        </div>
+        <div class="avatar-btn" data-av="2" style="--av-col:#f87171" onclick="selectAvatar(2)">
+          <span class="avatar-icon">🔴</span>
+          <span class="avatar-label">Red</span>
+        </div>
+        <div class="avatar-btn" data-av="3" style="--av-col:#fbbf24" onclick="selectAvatar(3)">
+          <span class="avatar-icon">🟡</span>
+          <span class="avatar-label">Yellow</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="createLobby()">＋ Create Lobby</button>
+    <div class="divider">— or —</div>
+
+    <div class="card">
+      <div class="card-label">Join with Code</div>
+      <input type="text" class="code-input" id="input-code" placeholder="XXXX" maxlength="4">
+      <button class="btn" onclick="joinLobby()">→ Join Lobby</button>
+    </div>
+
+    <div class="error-msg" id="home-error"></div>
+  </div>
+
+  <!-- ── LOBBY ─────────────────────────────────────────────────────── -->
+  <div id="screen-lobby" class="screen">
+    <div class="lobby-code-wrap">
+      <div class="lobby-code-label">Share this code with friends</div>
+      <div class="lobby-code-val" id="lobby-code" onclick="copyCode()">----</div>
+      <div class="copied-hint" id="copied-hint">Copied!</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Players</div>
+      <div class="lobby-slots" id="lobby-slots"></div>
+      <div class="status-line" id="lobby-status">Waiting for players...</div>
+    </div>
+
+    <button class="btn btn-success" id="ready-btn" onclick="sendReady()">Ready Up</button>
+    <button class="btn btn-danger" onclick="leaveLobby()" style="margin-top:4px">Leave Lobby</button>
+    <div class="error-msg" id="lobby-error"></div>
+  </div>
+
+  <!-- ── GAME ──────────────────────────────────────────────────────── -->
+  <div id="screen-game" class="screen">
+    <div id="win-banner">
+      <h2 id="win-text">🏆 Winner!</h2>
+      <button class="btn btn-primary" onclick="returnToLobby()">Back to Lobby</button>
+    </div>
+    <div id="game-hud"></div>
+    <canvas id="game-canvas"></canvas>
+    <div id="game-controls">Arrows: Move &nbsp;|&nbsp; Space: Place Mine &nbsp;|&nbsp; F: Sword Attack</div>
+  </div>
+</div>
+
+<div id="conn-dot" title="Server connection"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG  ←  Change this to your deployed server URL
+// ─────────────────────────────────────────────────────────────────────────────
+const SERVER_URL = "wss://your-server.railway.app"; // ← UPDATE THIS after deploying
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TILE = 28, COLS = 18, ROWS = 18;
+const AVATARS = [
+  { icon: "🟣", color: "#c084fc", name: "Purple" },
+  { icon: "🟢", color: "#4ade80", name: "Green" },
+  { icon: "🔴", color: "#f87171", name: "Red" },
+  { icon: "🟡", color: "#fbbf24", name: "Yellow" },
+];
+
+// ─── Client State ─────────────────────────────────────────────────────────────
+let ws = null;
+let myId = "p_" + Math.random().toString(36).slice(2, 10);
+let myAvatar = -1;
+let lobbyCode = null;
+let gameState = null;
+let animFrame = null;
+let keys = {};
+let spaceHeld = false;
+let fHeld = false;
+let inputInterval = null;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const $  = (id) => document.getElementById(id);
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  $("screen-" + id).classList.add("active");
+}
+function setError(id, msg) {
+  $(id).textContent = msg;
+  if (msg) setTimeout(() => { if ($(id)) $(id).textContent = ""; }, 3500);
+}
+
+// ─── Avatar selection ─────────────────────────────────────────────────────────
+function selectAvatar(i) {
+  myAvatar = i;
+  document.querySelectorAll(".avatar-btn").forEach((b) => b.classList.remove("selected"));
+  document.querySelector(`.avatar-btn[data-av="${i}"]`)?.classList.add("selected");
+}
+
+// ─── WebSocket connection ─────────────────────────────────────────────────────
+function connect(callback) {
+  if (ws && ws.readyState === WebSocket.OPEN) { callback(); return; }
+  ws = new WebSocket(SERVER_URL);
+  ws.onopen = () => { $("conn-dot").className = "connected"; callback(); };
+  ws.onerror = () => { $("conn-dot").className = "error"; setError("home-error", "Cannot connect to server."); };
+  ws.onclose = () => { $("conn-dot").className = ""; };
+  ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+}
+
+function send(data) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case "joined":
+      lobbyCode = msg.code;
+      if (msg.avatar !== undefined) myAvatar = msg.avatar;
+      $("lobby-code").textContent = msg.code;
+      showScreen("lobby");
+      break;
+
+    case "lobby_state":
+      renderLobby(msg);
+      break;
+
+    case "game_start":
+      gameState = msg.state;
+      startGame();
+      break;
+
+    case "game_state":
+      gameState = msg.state;
+      if (gameState.over) showWinner(gameState);
+      break;
+
+    case "error":
+      setError("home-error", msg.message);
+      setError("lobby-error", msg.message);
+      break;
+  }
+}
+
+// ─── Lobby actions ────────────────────────────────────────────────────────────
+function createLobby() {
+  const name = $("input-name").value.trim() || "Player";
+  if (myAvatar < 0) { setError("home-error", "Pick an avatar first!"); return; }
+  connect(() => send({ type: "create_lobby", playerId: myId, name, avatar: myAvatar }));
+}
+
+function joinLobby() {
+  const name = $("input-name").value.trim() || "Player";
+  if (myAvatar < 0) { setError("home-error", "Pick an avatar first!"); return; }
+  const code = $("input-code").value.trim().toUpperCase();
+  if (code.length !== 4) { setError("home-error", "Enter a 4-letter code."); return; }
+  connect(() => send({ type: "join_lobby", playerId: myId, name, avatar: myAvatar, code }));
+}
+
+function sendReady() { send({ type: "toggle_ready" }); }
+
+function leaveLobby() {
+  send({ type: "leave" });
+  stopInputLoop();
+  showScreen("home");
+  lobbyCode = null;
+}
+
+function copyCode() {
+  navigator.clipboard?.writeText(lobbyCode).catch(() => {});
+  const el = $("copied-hint");
+  el.classList.add("visible");
+  setTimeout(() => el.classList.remove("visible"), 1400);
+}
+
+function renderLobby(msg) {
+  const { players } = msg;
+  const me = players.find((p) => p.id === myId);
+
+  // Slots
+  let html = "";
+  for (let i = 0; i < 4; i++) {
+    const p = players[i];
+    if (p) {
+      const av = AVATARS[p.avatar];
+      html += `<div class="lobby-slot filled">
+        <div class="slot-avatar-icon">${av.icon}</div>
+        <div class="slot-info">
+          <div class="slot-name">${p.name}${p.isHost ? " 👑" : ""}</div>
+          <div class="slot-status${p.ready ? " ready" : ""}">${p.ready ? "READY" : "WAITING..."}</div>
+        </div>
+        <div class="ready-dot${p.ready ? " ready" : ""}"></div>
+      </div>`;
+    } else {
+      html += `<div class="lobby-slot"><span class="slot-empty">EMPTY</span></div>`;
+    }
+  }
+  $("lobby-slots").innerHTML = html;
+
+  // Status line
+  const readyCount = players.filter((p) => p.ready).length;
+  $("lobby-status").innerHTML = `<em>${players.length}</em>/4 players &nbsp;|&nbsp; <em>${readyCount}</em> ready`;
+
+  // Ready button
+  if (me) {
+    const btn = $("ready-btn");
+    btn.textContent = me.ready ? "✓ Ready!" : "Ready Up";
+    btn.className = "btn " + (me.ready ? "btn-ready-on" : "btn-success");
+  }
+
+  // Mark taken avatars
+  const takenByOthers = players.filter((p) => p.id !== myId).map((p) => p.avatar);
+  document.querySelectorAll(".avatar-btn").forEach((btn) => {
+    const av = parseInt(btn.dataset.av);
+    const taken = takenByOthers.includes(av);
+    btn.classList.toggle("taken", taken);
+    btn.querySelector(".taken-badge")?.remove();
+    if (taken) {
+      const badge = document.createElement("span");
+      badge.className = "taken-badge";
+      badge.textContent = "TAKEN";
+      btn.appendChild(badge);
+    }
+  });
+}
+
+// ─── Game ─────────────────────────────────────────────────────────────────────
+const canvas = $("game-canvas");
+const ctx = canvas.getContext("2d");
+
+function startGame() {
+  canvas.width = COLS * TILE;
+  canvas.height = ROWS * TILE;
+  $("win-banner").style.display = "none";
+  renderHUD(gameState.players);
+  showScreen("game");
+  if (animFrame) cancelAnimationFrame(animFrame);
+  drawLoop();
+  startInputLoop();
+}
+
+function drawLoop() {
+  if (gameState) drawGame(gameState);
+  animFrame = requestAnimationFrame(drawLoop);
+}
+
+function startInputLoop() {
+  stopInputLoop();
+  inputInterval = setInterval(() => {
+    const dir = keys["ArrowUp"] ? 0 : keys["ArrowDown"] ? 1 : keys["ArrowLeft"] ? 2 : keys["ArrowRight"] ? 3 : undefined;
+    const mine = spaceHeld;
+    const sword = fHeld;
+    if (mine) spaceHeld = false;
+    if (sword) fHeld = false;
+    if (dir !== undefined || mine || sword) {
+      send({ type: "input", dir, mine: mine || undefined, sword: sword || undefined });
+    }
+  }, 50);
+}
+
+function stopInputLoop() {
+  if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
+}
+
+function renderHUD(players) {
+  let html = "";
+  for (const p of players) {
+    const av = AVATARS[p.avatar];
+    html += `<div class="p-hud${p.dead ? " dead" : ""}" style="border-color:${av.color}33">
+      <span>${av.icon}</span>
+      <span class="hud-name" style="color:${av.color}">${p.name}</span>
+      <span class="hud-hearts">${"♥".repeat(Math.max(0, p.hp))}${"♡".repeat(Math.max(0, 3 - p.hp))}</span>
+    </div>`;
+  }
+  $("game-hud").innerHTML = html;
+}
+
+function drawGame(gs) {
+  const { grid, players, mines, explosions } = gs;
+  const W = COLS * TILE, H = ROWS * TILE;
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const t = grid[r]?.[c];
+      if (t === 1) { // WALL
+        ctx.fillStyle = "#1e293b"; ctx.fillRect(c*TILE, r*TILE, TILE, TILE);
+        ctx.fillStyle = "#334155"; ctx.fillRect(c*TILE+1, r*TILE+1, TILE-2, TILE-2);
+      } else if (t === 2) { // BOX
+        ctx.fillStyle = "#92400e"; ctx.fillRect(c*TILE, r*TILE, TILE, TILE);
+        ctx.fillStyle = "#b45309"; ctx.fillRect(c*TILE+2, r*TILE+2, TILE-4, TILE-4);
+        ctx.fillStyle = "#78350f";
+        ctx.fillRect(c*TILE+TILE/2-1, r*TILE+3, 2, TILE-6);
+        ctx.fillRect(c*TILE+3, r*TILE+TILE/2-1, TILE-6, 2);
+      } else {
+        ctx.fillStyle = "#0f172a"; ctx.fillRect(c*TILE, r*TILE, TILE, TILE);
+      }
+    }
+  }
+
+  // Explosions
+  for (const e of (explosions || [])) {
+    const alpha = e.life / e.maxLife;
+    const cx = e.tx * TILE, cy = e.ty * TILE;
+    ctx.save(); ctx.globalAlpha = alpha;
+    const g = ctx.createRadialGradient(cx+TILE/2, cy+TILE/2, 1, cx+TILE/2, cy+TILE/2, TILE/2);
+    g.addColorStop(0, "#fff7ed"); g.addColorStop(0.45, "#fb923c"); g.addColorStop(1, "rgba(239,68,68,0)");
+    ctx.fillStyle = g; ctx.fillRect(cx, cy, TILE, TILE); ctx.restore();
+  }
+
+  // Mines
+  for (const m of (mines || [])) {
+    const cx = m.tx * TILE + TILE/2, cy = m.ty * TILE + TILE/2;
+    const pulse = Math.sin(Date.now() / 140) * 0.25 + 0.75;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, TILE/3, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(239,68,68,${pulse})`; ctx.fill();
+    ctx.strokeStyle = "#fca5a5"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.font = `${TILE - 8}px sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("💣", cx, cy);
+    ctx.restore();
+  }
+
+  // Players
+  for (const p of (players || [])) {
+    if (p.dead) continue;
+    const blink = p.invincible > 0 && Math.floor(p.invincible * 8) % 2 === 0;
+    if (blink) continue;
+    const col = AVATARS[p.avatar].color;
+    const cx = p.px, cy = p.py;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, TILE/2 - 2, 0, Math.PI*2);
+    ctx.fillStyle = col + "33"; ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = p.id === myId ? 2.5 : 1.5; ctx.stroke();
+    ctx.font = `${TILE - 6}px sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(AVATARS[p.avatar].icon, cx, cy);
+
+    // Sword arc
+    if (p.swordActive && p.swordDir) {
+      const sx = (p.tx + p.swordDir.x) * TILE + TILE/2;
+      const sy = (p.ty + p.swordDir.y) * TILE + TILE/2;
+      ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.lineCap = "round";
+      ctx.globalAlpha = (p.swordTimer || 0) / 0.35;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sx, sy); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.font = "14px sans-serif"; ctx.fillText("⚔️", sx, sy);
+    }
+
+    // "You" indicator ring
+    if (p.id === myId) {
+      ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.arc(cx, cy, TILE/2 + 2, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  // Update HUD each frame for live hearts
+  renderHUD(players);
+}
+
+function showWinner(gs) {
+  stopInputLoop();
+  $("win-banner").style.display = "block";
+  if (gs.winner) {
+    const w = gs.players.find((p) => p.id === gs.winner);
+    $("win-text").textContent = w ? `${AVATARS[w.avatar].icon} ${w.name} Wins!` : "🏆 Winner!";
+  } else {
+    $("win-text").textContent = "💀 Draw!";
+  }
+}
+
+function returnToLobby() {
+  $("win-banner").style.display = "none";
+  showScreen("lobby");
+}
+
+// ─── Keyboard ─────────────────────────────────────────────────────────────────
+document.addEventListener("keydown", (e) => {
+  keys[e.key] = true;
+  if (e.key === " ") { spaceHeld = true; e.preventDefault(); }
+  if (e.key === "f" || e.key === "F") fHeld = true;
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) e.preventDefault();
+});
+document.addEventListener("keyup", (e) => { keys[e.key] = false; });
+</script>
+</body>
+</html>
