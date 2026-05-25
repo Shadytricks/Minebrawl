@@ -38,7 +38,8 @@ function send(ws, data) {
 
 function broadcastLobbyState() {
   if (!lobby) return;
-  broadcast({ type:"lobby_state", code:lobby.code, players:serializePlayers(), heroes:HEROES });
+  const takenColors = Array.from(lobby.players.values()).map(p => p.color);
+  broadcast({ type:"lobby_state", code:lobby.code, players:serializePlayers(), heroes:HEROES, takenColors });
 }
 
 function serializePlayers() {
@@ -345,6 +346,15 @@ wss.on("connection",(ws)=>{
 
   ws.on("message",(raw)=>{
     let msg; try{msg=JSON.parse(raw);}catch{return;}
+
+    // Always send current lobby color state so home screen can lock taken colors
+    if (msg.type==="check_colors") {
+      if (lobby) {
+        const takenColors=Array.from(lobby.players.values()).map(p=>p.color);
+        send(ws,{type:"lobby_state",code:lobby.code,players:serializePlayers(),heroes:HEROES,takenColors,preview:true});
+      }
+      return;
+    }
 
     switch(msg.type) {
       case "create_lobby": {
