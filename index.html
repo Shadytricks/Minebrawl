@@ -86,8 +86,13 @@ input[type=text]::placeholder{color:var(--dim);}
 .hero-card.selected .hero-card-name{color:var(--hcol);font-weight:bold;}
 .hero-card-ability{font-size:8px;color:var(--dim);margin-top:2px;}
 /* Tooltip */
+.hero-card canvas{pointer-events:none;display:block;margin:0 auto 3px;image-rendering:pixelated;}
+.hero-card{position:relative;overflow:visible;}
 .hero-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid var(--bord2);border-radius:8px;padding:10px 12px;width:180px;z-index:200;text-align:left;pointer-events:none;}
 .hero-card:hover .hero-tooltip{display:block;}
+/* Prevent hero grid from overflowing and blocking elements below */
+#home-hero-grid, #hero-grid{overflow:visible;position:relative;z-index:1;}
+#home-hero-grid .hero-tooltip, #hero-grid .hero-tooltip{z-index:300;}
 .tt-name{font-size:10px;color:var(--text);font-weight:bold;margin-bottom:4px;}
 .tt-ability{font-size:9px;color:var(--purple);margin-bottom:3px;}
 .tt-desc{font-size:9px;color:var(--muted);margin-bottom:3px;line-height:1.4;}
@@ -154,7 +159,7 @@ canvas{display:block;width:100%;border:2px solid var(--bord);border-radius:8px;i
     <div class="card">
       <div class="clabel">Choose Your Hero</div>
       <div id="home-hero-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;"></div>
-      <div id="home-hero-selected" style="font-size:10px;color:var(--muted);text-align:center;padding:4px;min-height:18px;"></div>
+      <div id="home-hero-selected" style="font-size:10px;color:var(--muted);text-align:center;padding:4px;min-height:18px;pointer-events:none;"></div>
     </div>
     <button class="btn btn-primary" onclick="createLobby()">＋ Create Lobby</button>
     <div class="divider">— or —</div>
