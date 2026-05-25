@@ -238,22 +238,23 @@ function tickGame(gs,dt) {
       }
     }
 
-    // Mine placement
-    if (p.wantMine&&p.mineCD<=0&&p.bombCount<p.maxBombs) {
-      const alreadyThere=gs.mines.some(m=>m.tx===p.tx&&m.ty===p.ty);
-      if (!alreadyThere) {
-        // Blackbeard throw mode
-        if (p.abilityActive&&p.hero==="blackbeard") {
-          const tx=p.tx+p.swordDir.x*3, ty=p.ty+p.swordDir.y*3;
-          gs.projectiles.push({ type:"bomb", tx:p.tx, ty:p.ty, px:p.px, py:p.py,
-            destTx:tx, destTy:ty, dir:p.swordDir, owner:p.id, speed:TILE*12, done:false, timer:3 });
-          p.bombCount++; p.mineCD=1.2;
-        } else {
-          gs.mines.push({tx:p.tx,ty:p.ty,timer:3,owner:p.id,exploding:false,grace:BOMB_GRACE});
-          p.bombCount++; p.mineCD=1.2;
+    // Mine placement — no queuing, ignore if at max bombs
+    if (p.wantMine) {
+      if (p.mineCD <= 0 && p.bombCount < p.maxBombs) {
+        const alreadyThere = gs.mines.some(m => m.tx === p.tx && m.ty === p.ty);
+        if (!alreadyThere) {
+          if (p.abilityActive && p.hero === "blackbeard") {
+            const tx = p.tx + p.swordDir.x * 3, ty = p.ty + p.swordDir.y * 3;
+            gs.projectiles.push({ type:"bomb", tx:p.tx, ty:p.ty, px:p.px, py:p.py,
+              destTx:tx, destTy:ty, dir:p.swordDir, owner:p.id, speed:TILE*12, done:false, timer:3 });
+            p.bombCount++; p.mineCD = 1.2;
+          } else {
+            gs.mines.push({ tx:p.tx, ty:p.ty, timer:3, owner:p.id, exploding:false, grace:BOMB_GRACE });
+            p.bombCount++; p.mineCD = 1.2;
+          }
         }
       }
-      p.wantMine=false;
+      p.wantMine = false; // always clear, never queue
     }
 
     // Sword
