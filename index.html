@@ -681,8 +681,10 @@ function drawGame(gs) {
     const pulse = Math.sin(Date.now() / 140) * 0.25 + 0.75;
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, TILE/3, 0, Math.PI*2);
-    ctx.fillStyle = `rgba(239,68,68,${pulse})`; ctx.fill();
-    ctx.strokeStyle = "#fca5a5"; ctx.lineWidth = 1.5; ctx.stroke();
+    const owner = (players || []).find(p => p.id === m.owner);
+    const col = owner ? AVATARS[owner.avatar].color : "#f87171";
+    ctx.fillStyle = col + Math.round(pulse * 200).toString(16).padStart(2,'0'); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.font = `${TILE - 8}px sans-serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("💣", cx, cy);
