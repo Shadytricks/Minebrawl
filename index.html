@@ -375,12 +375,11 @@ function connect(cb){
   ws=new WebSocket(SERVER_URL);
   ws.onopen=()=>{
     $("conn-dot").className="connected";
-    // Check for taken colors immediately
     ws.send(JSON.stringify({type:"check_colors"}));
     cb();
   };
   ws.onerror=()=>{$("conn-dot").className="error";setErr("home-err","Cannot connect to server.");};
-  ws.onclose=()=>{$("conn-dot").className="";};
+  ws.onclose=()=>{$("conn-dot").className="";ws=null;};
   ws.onmessage=e=>handleMsg(JSON.parse(e.data));
 }
 function send(data){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(data));}
@@ -699,31 +698,17 @@ buildHeroGrid();
 selectHero("caesar");
 selectColor("#e8b84b");
 
-// Connect immediately on load to fetch taken colors
+// Connect on page load — single socket handles everything
 (function initConnect(){
   try {
-    const sock = new WebSocket(SERVER_URL);
-    sock.onopen = () => {
+    ws = new WebSocket(SERVER_URL);
+    ws.onopen = () => {
       $("conn-dot").className = "connected";
-      sock.send(JSON.stringify({type:"check_colors"}));
+      ws.send(JSON.stringify({type:"check_colors"}));
     };
-    sock.onmessage = e => {
-      const msg = JSON.parse(e.data);
-      if (msg.type==="lobby_state"&&msg.preview) {
-        const tc=msg.takenColors||[];
-        document.querySelectorAll(".color-btn").forEach(btn=>{
-          const c=btn.dataset.color;
-          const taken=tc.includes(c)&&c!==myColor;
-          btn.classList.toggle("taken",taken);
-          btn.querySelector(".taken-badge")?.remove();
-          if(taken){const b=document.createElement("span");b.className="taken-badge";b.textContent="TAKEN";btn.appendChild(b);}
-        });
-      }
-    };
-    sock.onclose = () => { $("conn-dot").className=""; };
-    sock.onerror = () => { $("conn-dot").className="error"; };
-    // Keep this socket as the main ws so it's ready when user clicks create/join
-    setTimeout(()=>{ if(sock.readyState===WebSocket.OPEN) ws=sock; }, 500);
+    ws.onmessage = e => handleMsg(JSON.parse(e.data));
+    ws.onclose = () => { $("conn-dot").className=""; ws=null; };
+    ws.onerror = () => { $("conn-dot").className="error"; };
   } catch(e) {}
 })();
 </script>
