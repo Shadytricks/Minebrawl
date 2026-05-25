@@ -440,6 +440,7 @@ function renderLobbyHeroForMe() {
 
 function renderLobby(msg) {
   const { players } = msg;
+  console.log("renderLobby players:", players.map(p => ({name:p.name, hero:p.hero})));
   const me = players.find(p => p.id === myId);
   let html = "";
   for (let i = 0; i < 4; i++) {
