@@ -425,7 +425,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG  ←  Change this to your deployed server URL
 // ─────────────────────────────────────────────────────────────────────────────
-const SERVER_URL = "wss://minebrawl-production.up.railway.app"; // ← UPDATE THIS after deploying
+const SERVER_URL = "wss://your-server.railway.app"; // ← UPDATE THIS after deploying
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TILE = 28, COLS = 18, ROWS = 18;
@@ -615,14 +615,12 @@ function drawLoop() {
 function startInputLoop() {
   stopInputLoop();
   inputInterval = setInterval(() => {
-    const dir = keys["ArrowUp"] ? 0 : keys["ArrowDown"] ? 1 : keys["ArrowLeft"] ? 2 : keys["ArrowRight"] ? 3 : undefined;
+    const dir = keys["ArrowUp"] ? 0 : keys["ArrowDown"] ? 1 : keys["ArrowLeft"] ? 2 : keys["ArrowRight"] ? 3 : null;
     const mine = spaceHeld;
     const sword = fHeld;
     if (mine) spaceHeld = false;
     if (sword) fHeld = false;
-    if (dir !== undefined || mine || sword) {
-      send({ type: "input", dir, mine: mine || undefined, sword: sword || undefined });
-    }
+    send({ type: "input", dir, mine: mine || undefined, sword: sword || undefined });
   }, 50);
 }
 
