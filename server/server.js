@@ -190,6 +190,7 @@ function tickGame(gs, dt) {
         p.ty = ny;
         p.swordDir = { x: DX[p.inputDir], y: DY[p.inputDir] };
       }
+      p.inputDir = null;
     }
 
     if (p.moving) {
