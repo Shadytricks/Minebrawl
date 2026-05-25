@@ -363,6 +363,7 @@ wss.on("connection",(ws)=>{
         playerId=msg.playerId;
         lobby={ code:randCode(), phase:"lobby", players:new Map(), gameState:null };
         lobby.players.set(playerId,{id:playerId,ws,name:msg.name,color:msg.color,hero:msg.hero||"caesar",ready:false,isHost:true});
+        console.log("create_lobby — saved hero:", msg.hero, "for", msg.name);
         send(ws,{type:"joined",code:lobby.code,playerId});
         broadcastLobbyState();
         break;
@@ -383,6 +384,7 @@ wss.on("connection",(ws)=>{
       case "update_loadout": {
         if (!lobby||!playerId) return;
         const p=lobby.players.get(playerId); if(!p) return;
+        console.log("update_loadout received:", msg.hero, "for player:", p.name);
         if (msg.hero) p.hero=msg.hero;
         broadcastLobbyState();
         break;
