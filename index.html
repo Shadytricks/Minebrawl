@@ -410,6 +410,7 @@ function handleMsg(msg){
     case "game_start":
       if(msg.heroes)HEROES=msg.heroes;
       gameState=msg.state;
+      console.log("Game started, my player:", gameState.players.find(p=>p.id===myId));
       startGame();
       break;
     case "game_state":
@@ -427,6 +428,7 @@ function handleMsg(msg){
 function createLobby(){
   const name=$("inp-name").value.trim()||"Player";
   if(!myColor){setErr("home-err","Pick a color first!");return;}
+  console.log("Creating lobby with hero:", myHero, "color:", myColor);
   connect(()=>send({type:"create_lobby",playerId:myId,name,color:myColor,hero:myHero}));
 }
 function joinLobby(){
@@ -434,6 +436,7 @@ function joinLobby(){
   if(!myColor){setErr("home-err","Pick a color first!");return;}
   const code=$("inp-code").value.trim().toUpperCase();
   if(code.length!==4){setErr("home-err","Enter a 4-letter code.");return;}
+  console.log("Joining lobby with hero:", myHero, "color:", myColor);
   connect(()=>send({type:"join_lobby",playerId:myId,name,color:myColor,hero:myHero,code}));
 }
 function sendReady(){send({type:"toggle_ready"});}
