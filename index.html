@@ -209,7 +209,7 @@ const HEROES = [
   {id:"cleo",     name:"Cleopatra",     color:"#38bdf8", dark:"#0284c7", female:true,  ability:"Blessing of Gods",  desc:"Revive once upon death with 1 HP + 2s shield.", cd:0},
   {id:"bjorn",    name:"Bjorn Ironside",color:"#94a3b8", dark:"#475569", female:false, ability:"Axe Throw",         desc:"Throw axe forward. 3 charges, 15s regen each.", cd:15},
   {id:"achilles", name:"Achilles",      color:"#f87171", dark:"#dc2626", female:false, ability:"Spear Spin",        desc:"Spinning spears orbit you for 3s — damages enemies.", cd:15},
-  {id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"Reveals bomb zones and timers for 8s.", cd:20},
+  {id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"Passive: Always sees bomb zones, timers and danger tiles.", cd:0},
   {id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Toss",       desc:"Throw bombs forward 3 tiles for 5s.", cd:15},
 ];
 
@@ -1067,6 +1067,12 @@ function renderHUD(players) {
           ${used ? '✗ USED' : '✓ READY'}
         </div>`;
 
+    } else if (p.hero === "suntzu") {
+      // Always active passive
+      abilityHtml = `
+        <div class="phud-hero" style="color:${h.color}">${h.ability}</div>
+        <div style="font-size:8px;color:#4ade80;letter-spacing:1px">✓ ALWAYS ACTIVE</div>`;
+
     } else {
       // Standard cooldown bar
       const maxCD = h.cd || 30;
@@ -1286,8 +1292,9 @@ function drawGame(gs, dt=1/60) {
     else if (t === 2) { ctx.fillStyle="#92400e"; ctx.fillRect(c*TILE,r*TILE,TILE,TILE); ctx.fillStyle="#b45309"; ctx.fillRect(c*TILE+2,r*TILE+2,TILE-4,TILE-4); ctx.fillStyle="#78350f"; ctx.fillRect(c*TILE+TILE/2-1,r*TILE+3,2,TILE-6); ctx.fillRect(c*TILE+3,r*TILE+TILE/2-1,TILE-6,2); }
     else { ctx.fillStyle="#0a0f1a"; ctx.fillRect(c*TILE,r*TILE,TILE,TILE); }
   }
-  const me = (players||[]).find(p => p.id === myId);
-  if (me && me.hero === "suntzu" && me.abilityActive) {
+  // Sun Tzu bomb zone overlay — visible to Sun Tzu player always
+  const suntzuP = (players||[]).find(p=>p.id===myId&&p.hero==="suntzu");
+  if (suntzuP && suntzuP.abilityActive) {
     ctx.save(); ctx.globalAlpha = 0.22; ctx.fillStyle = "#4ade80";
     for (const m of (mines||[])) {
       ctx.fillRect(m.tx*TILE,m.ty*TILE,TILE,TILE);
