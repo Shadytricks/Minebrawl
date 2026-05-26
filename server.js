@@ -168,37 +168,8 @@ function useAbility(p,gs) {
     return;
   }
   else if (h==="blackbeard") {
-    // Push the nearest bomb in facing direction
-    const dir = p.swordDir || {x:0,y:1};
-    // Find any bomb within 3 tiles in facing direction, or adjacent in any dir
-    let target = null;
-    // First check directly in facing direction (up to 2 tiles)
-    for (let r=1; r<=2; r++) {
-      const bx=p.tx+dir.x*r, by=p.ty+dir.y*r;
-      const found = gs.mines.find(m=>m.tx===bx&&m.ty===by&&!m.exploding);
-      if (found) { target=found; break; }
-    }
-    // Also check standing on a bomb
-    if (!target) target = gs.mines.find(m=>m.tx===p.tx&&m.ty===p.ty&&!m.exploding);
-
-    if (target) {
-      // Slide bomb 3 tiles in facing direction, stop at walls/boxes/other bombs
-      let newTx=target.tx, newTy=target.ty;
-      for (let r=1; r<=3; r++) {
-        const nx=target.tx+dir.x*r, ny=target.ty+dir.y*r;
-        if (solidAt(gs.grid,nx,ny)) break;
-        if (gs.mines.some(m=>m!==target&&m.tx===nx&&m.ty===ny)) break;
-        newTx=nx; newTy=ny;
-      }
-      if (newTx!==target.tx||newTy!==target.ty) {
-        target.tx=newTx; target.ty=newTy;
-        target.px=newTx*TILE+TILE/2; target.py=newTy*TILE+TILE/2;
-        target.grace=0; // no grace — pushed bomb blocks immediately
-        p.abilityCD=15;
-        gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
-      }
-    }
-    // No bomb found — do nothing (no cooldown wasted)
+    // Passive — push handled automatically, no D key needed
+    return;
   }
 }
 
