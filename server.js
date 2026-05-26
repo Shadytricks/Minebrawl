@@ -18,7 +18,7 @@ const HEROES = [
   { id:"cleo",     name:"Cleopatra",     color:"#38bdf8", dark:"#0284c7", female:true,  ability:"Blessing of Gods",  desc:"Revive once with 1 HP",    cooldown:0  },
   { id:"bjorn",    name:"Bjorn Ironside",color:"#94a3b8", dark:"#475569", female:false, ability:"Axe Throw",         desc:"Throw axe, 3 charges",     cooldown:30 },
   { id:"achilles", name:"Achilles",      color:"#f87171", dark:"#dc2626", female:false, ability:"Spear Spin",        desc:"Spinning spears 3s",       cooldown:30 },
-  { id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"See bomb zones 8s",        cooldown:30 },
+  { id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"See bomb zones 8s",        cooldown:20 },
   { id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Toss",       desc:"Throw bombs 5s",           cooldown:30 },
 ];
 
@@ -161,7 +161,7 @@ function useAbility(p,gs) {
     gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
   }
   else if (h==="suntzu") {
-    p.abilityActive=true; p.abilityTimer=8; p.abilityCD=ABILITY_CD;
+    p.abilityActive=true; p.abilityTimer=8; p.abilityCD=20;
     gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
   }
   else if (h==="blackbeard") {
