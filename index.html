@@ -231,14 +231,25 @@ const SFX=(()=>{
   };
 })();
 
-let prevMines=0,prevExps=0,prevHPs={},prevOver=false;
+let prevMines=0,prevExps=0,prevHPs={},prevOver=false,prevDead={};
+const reviveAnims = {}; // playerId -> { t: elapsed ms, px, py }
+
 function detectSounds(gs){
   if(!gs)return;
   if((gs.mines||[]).length>prevMines)SFX.mine();
   prevMines=(gs.mines||[]).length;
   if((gs.explosions||[]).length>prevExps)SFX.boom();
   prevExps=(gs.explosions||[]).length;
-  (gs.players||[]).forEach(p=>{if(prevHPs[p.id]!==undefined&&p.hp<prevHPs[p.id])SFX.hurt();prevHPs[p.id]=p.hp;});
+  (gs.players||[]).forEach(p=>{
+    if(prevHPs[p.id]!==undefined&&p.hp<prevHPs[p.id])SFX.hurt();
+    // Detect Cleopatra revive: was dead, now alive with abilityUsed
+    if(p.hero==="cleo" && prevDead[p.id]===true && !p.dead && p.abilityUsed) {
+      reviveAnims[p.id] = { t: 0, px: p.px, py: p.py };
+      SFX.ability();
+    }
+    prevHPs[p.id]=p.hp;
+    prevDead[p.id]=p.dead;
+  });
   if(gs.over&&!prevOver)SFX.win();
   prevOver=gs.over||false;
 }
@@ -946,6 +957,8 @@ function startGame() {
   prevMines = 0; prevExps = 0; prevHPs = {}; prevOver = false;
   // Clear animation states and input so nothing carries over
   Object.keys(animStates).forEach(k => delete animStates[k]);
+  Object.keys(reviveAnims).forEach(k => delete reviveAnims[k]);
+  Object.keys(prevDead).forEach(k => delete prevDead[k]);
   spaceHeld = false; fHeld = false; dHeld = false;
   keys = {};
   showScreen("game");
@@ -953,7 +966,14 @@ function startGame() {
   drawLoop(); startInputLoop();
 }
 
-function drawLoop() { if (gameState) drawGame(gameState); animFrame = requestAnimationFrame(drawLoop); }
+let lastDrawTime = 0;
+function drawLoop() {
+  const now = performance.now();
+  const dt = Math.min((now - lastDrawTime) / 1000, 0.05);
+  lastDrawTime = now;
+  if (gameState) drawGame(gameState, dt);
+  animFrame = requestAnimationFrame(drawLoop);
+}
 
 function startInputLoop() {
   stopInputLoop();
@@ -1054,7 +1074,191 @@ function renderHUD(players) {
   $("game-hud").innerHTML = html;
 }
 
-function drawGame(gs) {
+function drawReviveAnimation(ctx, pid, px, py, dt) {
+  const anim = reviveAnims[pid];
+  if (!anim) return;
+  anim.t += dt * 1000; // advance in ms
+  const t = anim.t;
+  const TOTAL = 2400; // total animation ms
+
+  if (t > TOTAL) { delete reviveAnims[pid]; return; }
+
+  const cx = Math.round(px), cy = Math.round(py);
+  const GOLD = "#e8c000";
+  const GOLD2 = "#f5d020";
+  const ANKH_COL = "#f0c040";
+
+  ctx.save();
+
+  // ── Stage 1: Death pause (0-300ms) ──────────────────────────────
+  // nothing extra drawn, just wait
+
+  // ── Stage 2: Divine beam descends (300-1600ms) ──────────────────
+  if (t > 300) {
+    const s2 = Math.min(1, (t - 300) / 400); // 0→1 over 400ms
+
+    // Beam from top of canvas
+    const beamH = cy + 20;
+    const beamW = 28 * s2;
+    const grad = ctx.createLinearGradient(cx, 0, cx, cy + 20);
+    grad.addColorStop(0, `rgba(255,220,0,0)`);
+    grad.addColorStop(0.3, `rgba(255,220,0,${0.5 * s2})`);
+    grad.addColorStop(1, `rgba(255,220,0,${0.9 * s2})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx - beamW/2, 0, beamW, beamH);
+
+    // Bright core beam
+    const coreGrad = ctx.createLinearGradient(cx, 0, cx, cy);
+    coreGrad.addColorStop(0, `rgba(255,255,200,0)`);
+    coreGrad.addColorStop(0.6, `rgba(255,255,200,${0.3 * s2})`);
+    coreGrad.addColorStop(1, `rgba(255,255,255,${0.7 * s2})`);
+    ctx.fillStyle = coreGrad;
+    ctx.fillRect(cx - 6, 0, 12, cy);
+  }
+
+  // ── Radiant ground circle ────────────────────────────────────────
+  if (t > 400) {
+    const s3 = Math.min(1, (t - 400) / 500);
+    const pulseR = 32 + Math.sin(t / 80) * 4;
+    const groundGrad = ctx.createRadialGradient(cx, cy+4, 0, cx, cy+4, pulseR * s3);
+    groundGrad.addColorStop(0, `rgba(255,220,0,${0.5 * s3})`);
+    groundGrad.addColorStop(0.5, `rgba(255,180,0,${0.25 * s3})`);
+    groundGrad.addColorStop(1, `rgba(255,140,0,0)`);
+    ctx.fillStyle = groundGrad;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 8, pulseR * s3, pulseR * s3 * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── Aura glow around character ───────────────────────────────────
+  if (t > 500) {
+    const s4 = Math.min(1, (t - 500) / 400);
+    const auraR = 20 + Math.sin(t / 100) * 3;
+    const auraGrad = ctx.createRadialGradient(cx, cy - 8, 2, cx, cy - 8, auraR);
+    auraGrad.addColorStop(0, `rgba(255,230,80,${0.6 * s4})`);
+    auraGrad.addColorStop(0.5, `rgba(255,200,0,${0.3 * s4})`);
+    auraGrad.addColorStop(1, `rgba(255,160,0,0)`);
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 8, auraR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer ring
+    ctx.strokeStyle = `rgba(255,220,60,${0.7 * s4})`;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 8, auraR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Second rotating ring
+    ctx.save();
+    ctx.translate(cx, cy - 8);
+    ctx.rotate(t / 300);
+    ctx.strokeStyle = `rgba(255,240,120,${0.4 * s4})`;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(0, 0, auraR + 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // ── Ankh symbol ──────────────────────────────────────────────────
+  if (t > 700 && t < 1800) {
+    const s5 = Math.min(1, (t - 700) / 300);
+    const fade = t > 1500 ? 1 - (t - 1500) / 300 : 1;
+    const ankhY = cy - 44 - (1 - s5) * 20; // rises into position
+    ctx.globalAlpha = s5 * fade;
+    ctx.strokeStyle = ANKH_COL;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    // Ankh cross
+    ctx.beginPath();
+    ctx.moveTo(cx, ankhY + 6);
+    ctx.lineTo(cx, ankhY + 18);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - 9, ankhY + 10);
+    ctx.lineTo(cx + 9, ankhY + 10);
+    ctx.stroke();
+    // Ankh loop
+    ctx.beginPath();
+    ctx.arc(cx, ankhY, 7, 0, Math.PI * 2);
+    ctx.stroke();
+    // Glow behind ankh
+    ctx.fillStyle = `rgba(255,220,60,${0.15 * s5 * fade})`;
+    ctx.beginPath();
+    ctx.arc(cx, ankhY + 6, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Golden particles ─────────────────────────────────────────────
+  if (t > 500 && t < 2200) {
+    const seed = Math.floor(t / 40);
+    for (let i = 0; i < 8; i++) {
+      const ps = (seed * 7 + i * 13) % 100 / 100;
+      const pa = ps * Math.PI * 2 + t / 400;
+      const pr = 18 + ps * 18;
+      const prise = ((t - 500) / 1700) * 30;
+      const px2 = cx + Math.cos(pa) * pr;
+      const py2 = cy - 8 + Math.sin(pa) * pr * 0.4 - prise * ps;
+      const psize = 1.5 + ps * 2;
+      const palpha = Math.sin(ps * Math.PI) * 0.8;
+      ctx.globalAlpha = palpha;
+      ctx.fillStyle = i % 3 === 0 ? "#ffffff" : GOLD2;
+      ctx.beginPath();
+      ctx.arc(px2, py2, psize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Hieroglyph symbols (simple) ──────────────────────────────────
+  if (t > 800 && t < 1700) {
+    const syms = ["𓂀","𓋴","𓆣","𓅓"];
+    const sfade = t > 1500 ? 1 - (t - 1500) / 200 : Math.min(1, (t - 800) / 200);
+    ctx.globalAlpha = sfade * 0.65;
+    ctx.fillStyle = GOLD;
+    ctx.font = "bold 11px serif";
+    ctx.textAlign = "center";
+    syms.forEach((sym, i) => {
+      const a = (i / syms.length) * Math.PI * 2 + t / 600;
+      const r = 34;
+      ctx.fillText(sym, cx + Math.cos(a) * r, cy - 8 + Math.sin(a) * r * 0.5);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Stage 3: Revival flash (1600-2400ms) ─────────────────────────
+  if (t > 1600) {
+    const s6 = (t - 1600) / 800;
+    // Bright flash at peak
+    if (t < 1750) {
+      const flash = 1 - (t - 1600) / 150;
+      ctx.fillStyle = `rgba(255,240,160,${flash * 0.5})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 8, 40 * flash + 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Invulnerability elegant shield (fades in)
+    const shieldAlpha = Math.min(1, s6) * 0.4;
+    ctx.strokeStyle = `rgba(255,220,60,${shieldAlpha})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 8, 18, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = `rgba(255,220,60,${shieldAlpha * 0.25})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 8, 18, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawGame(gs, dt=1/60) {
   const { grid, players, mines, explosions, projectiles } = gs;
   ctx.clearRect(0, 0, COLS * TILE, ROWS * TILE);
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -1172,8 +1376,22 @@ function drawGame(gs) {
       }
     }
     // Caesar shield
-    if (p.shieldActive) {
+    if (p.shieldActive && p.hero === "caesar") {
       ctx.save();ctx.globalAlpha=0.32+Math.sin(Date.now()/120)*0.1;ctx.strokeStyle="#e8b84b";ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-8,17,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=0.08;ctx.fillStyle="#e8b84b";ctx.fill();ctx.restore();
+    }
+    // Cleopatra divine shield (more elegant)
+    if (p.shieldActive && p.hero === "cleo") {
+      const pulse = Math.sin(Date.now()/150)*0.1;
+      ctx.save();
+      ctx.globalAlpha=0.25+pulse;
+      ctx.strokeStyle="#f0c040";ctx.lineWidth=2.5;
+      ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(0,-8,17,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+      ctx.globalAlpha=0.08+pulse*0.5;ctx.fillStyle="#f5d040";ctx.fill();
+      // Orbiting ankh dot
+      ctx.globalAlpha=0.7+pulse;ctx.fillStyle="#f0c040";
+      const a=Date.now()/400;
+      ctx.beginPath();ctx.arc(Math.cos(a)*17,Math.sin(a)*17-8,2.5,0,Math.PI*2);ctx.fill();
+      ctx.restore();
     }
     // Blackbeard throw mode
     if (p.abilityActive && p.hero==="blackbeard") {
@@ -1201,6 +1419,14 @@ function drawGame(gs) {
     ctx.restore();
   }
   renderHUD(players||[]);
+
+  // Draw revival animations on top
+  for (const [pid, anim] of Object.entries(reviveAnims)) {
+    const p = (players||[]).find(p=>p.id===pid);
+    const px2 = p ? p.px : anim.px;
+    const py2 = p ? p.py : anim.py;
+    drawReviveAnimation(ctx, pid, px2, py2, dt);
+  }
 }
 
 function showWinner(gs) {
