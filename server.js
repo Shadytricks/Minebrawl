@@ -10,16 +10,16 @@ const DX = [0, 0, -1, 1];
 const DY = [-1, 1, 0, 0];
 const STARTS = [{ x:1,y:1 },{ x:16,y:16 },{ x:16,y:1 },{ x:1,y:16 }];
 const TICK_MS = 50;
-const ABILITY_CD = 30;
+const ABILITY_CD = 15;
 const BOMB_GRACE = 0.4; // seconds player can walk through own fresh bomb
 
 const HEROES = [
-  { id:"caesar",   name:"Julius Caesar", color:"#e8b84b", dark:"#b8860b", female:false, ability:"Imperial Shield",   desc:"3s invincibility",         cooldown:30 },
+  { id:"caesar",   name:"Julius Caesar", color:"#e8b84b", dark:"#b8860b", female:false, ability:"Imperial Shield",   desc:"3s invincibility",         cooldown:15 },
   { id:"cleo",     name:"Cleopatra",     color:"#38bdf8", dark:"#0284c7", female:true,  ability:"Blessing of Gods",  desc:"Revive once with 1 HP",    cooldown:0  },
-  { id:"bjorn",    name:"Bjorn Ironside",color:"#94a3b8", dark:"#475569", female:false, ability:"Axe Throw",         desc:"Throw axe, 3 charges",     cooldown:30 },
-  { id:"achilles", name:"Achilles",      color:"#f87171", dark:"#dc2626", female:false, ability:"Spear Spin",        desc:"Spinning spears 3s",       cooldown:30 },
+  { id:"bjorn",    name:"Bjorn Ironside",color:"#94a3b8", dark:"#475569", female:false, ability:"Axe Throw",         desc:"Throw axe, 3 charges",     cooldown:15 },
+  { id:"achilles", name:"Achilles",      color:"#f87171", dark:"#dc2626", female:false, ability:"Spear Spin",        desc:"Spinning spears 3s",       cooldown:15 },
   { id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"See bomb zones 8s",        cooldown:20 },
-  { id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Toss",       desc:"Throw bombs 5s",           cooldown:30 },
+  { id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Toss",       desc:"Throw bombs 5s",           cooldown:15 },
 ];
 
 let lobby = null;
@@ -146,18 +146,18 @@ function useAbility(p,gs) {
   const h = p.hero;
 
   if (h==="caesar") {
-    p.shieldActive=true; p.invincible=3; p.abilityCD=ABILITY_CD;
+    p.shieldActive=true; p.invincible=3; p.abilityCD=15;
     gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
   }
   else if (h==="bjorn") {
     if (p.axeCharges<=0) return;
     p.axeCharges--;
-    p.axeRegenTimer=ABILITY_CD;
+    p.axeRegenTimer=15;
     gs.projectiles.push({ type:"axe", tx:p.tx, ty:p.ty, px:p.px, py:p.py, dir:{x:p.swordDir.x,y:p.swordDir.y}, owner:p.id, speed:TILE*14, done:false });
     gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
   }
   else if (h==="achilles") {
-    p.abilityActive=true; p.abilityTimer=3; p.abilityCD=ABILITY_CD;
+    p.abilityActive=true; p.abilityTimer=3; p.abilityCD=15;
     gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
   }
   else if (h==="suntzu") {
@@ -165,7 +165,7 @@ function useAbility(p,gs) {
     gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
   }
   else if (h==="blackbeard") {
-    p.abilityActive=true; p.abilityTimer=5; p.abilityCD=ABILITY_CD;
+    p.abilityActive=true; p.abilityTimer=5; p.abilityCD=15;
     gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
   }
 }
@@ -184,7 +184,7 @@ function tickGame(gs,dt) {
     // Axe regen
     if (p.hero==="bjorn"&&p.axeCharges<3) {
       p.axeRegenTimer=Math.max(0,p.axeRegenTimer-dt);
-      if (p.axeRegenTimer<=0) { p.axeCharges=Math.min(3,p.axeCharges+1); if(p.axeCharges<3) p.axeRegenTimer=ABILITY_CD; }
+      if (p.axeRegenTimer<=0) { p.axeCharges=Math.min(3,p.axeCharges+1); if(p.axeCharges<3) p.axeRegenTimer=15; }
     }
 
     // Ability timer
