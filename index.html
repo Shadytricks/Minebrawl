@@ -268,6 +268,23 @@ function detectSounds(gs){
     prevDead[p.id]=p.dead;
     prevAbilityUsed[p.id]=p.abilityUsed;
   });
+  // Detect axe impacts — when a projectile disappears, spawn flash
+  const prevProjs = detectSounds._prevProjs || [];
+  const currProjs = gs.projectiles || [];
+  for (const pp of prevProjs) {
+    const stillAlive = currProjs.some(cp => cp.owner===pp.owner && Math.abs(cp.px-pp.px)<TILE*2);
+    if (!stillAlive) {
+      // Check if it hit a player (enemy nearby) or wall
+      const hitPlayer = (gs.players||[]).some(p =>
+        !p.dead && p.id!==pp.owner &&
+        Math.abs(p.px-pp.px)<TILE*1.5 && Math.abs(p.py-pp.py)<TILE*1.5
+      );
+      impactFlashes.push({ px:pp.px, py:pp.py, t:0, type: hitPlayer ? "hit" : "wall" });
+      if (hitPlayer) SFX.hurt();
+    }
+  }
+  detectSounds._prevProjs = currProjs.map(p=>({...p}));
+
   if(gs.over&&!prevOver)SFX.win();
   prevOver=gs.over||false;
 }
@@ -987,6 +1004,8 @@ function startGame() {
 }
 
 let lastDrawTime = 0;
+const axeTrails = {}; // projId -> [{px,py,age}]
+const impactFlashes = []; // {px,py,t,type}
 function drawLoop() {
   const now = performance.now();
   const dt = Math.min((now - lastDrawTime) / 1000, 0.05);
@@ -1323,8 +1342,192 @@ function drawGame(gs, dt=1/60) {
     }
     ctx.restore();
   }
-  for (const proj of (projectiles||[])) {
-    ctx.save(); ctx.translate(proj.px,proj.py); ctx.rotate(Date.now()/100); ctx.fillStyle="#94a3b8"; ctx.fillRect(-5,-2,10,4); ctx.fillRect(-2,-5,4,10); ctx.restore();
+  // ── Projectile rendering ─────────────────────────────────────────
+  const now = Date.now();
+  const activeIds = new Set((projectiles||[]).map((_,i)=>i));
+
+  // Update trails
+  for (const [id, trail] of Object.entries(axeTrails)) {
+    for (const p of trail) p.age += dt;
+    axeTrails[id] = trail.filter(p => p.age < 0.18);
+  }
+
+  for (let i = 0; i < (projectiles||[]).length; i++) {
+    const proj = projectiles[i];
+    const pid = `${proj.owner}_${Math.round(proj.px/4)}_${Math.round(proj.py/4)}`;
+
+    // Record trail point
+    if (!axeTrails[pid]) axeTrails[pid] = [];
+    axeTrails[pid].push({ px: proj.px, py: proj.py, age: 0 });
+
+    // Draw motion trail
+    const trail = axeTrails[pid];
+    for (let t = 0; t < trail.length; t++) {
+      const tp = trail[t];
+      const alpha = (1 - tp.age / 0.18) * 0.35;
+      const size = 3 * (1 - tp.age / 0.18);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = "#94a3b8";
+      ctx.beginPath();
+      ctx.arc(tp.px, tp.py, size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Wind slash lines behind axe
+    const tDir = { x: -(proj.dir?.x||0), y: -(proj.dir?.y||0) };
+    for (let s = 0; s < 3; s++) {
+      const offset = (s - 1) * 4;
+      const perp = { x: -tDir.y, y: tDir.x };
+      ctx.save();
+      ctx.globalAlpha = 0.15 + s * 0.05;
+      ctx.strokeStyle = "#b0c4de";
+      ctx.lineWidth = 1;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(proj.px + perp.x * offset, proj.py + perp.y * offset);
+      ctx.lineTo(
+        proj.px + perp.x * offset + tDir.x * (10 + s * 4),
+        proj.py + perp.y * offset + tDir.y * (10 + s * 4)
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw the axe itself
+    const spin = now / 120; // spin speed
+    ctx.save();
+    ctx.translate(proj.px, proj.py);
+    ctx.rotate(spin);
+
+    // Outer glow
+    ctx.save();
+    ctx.globalAlpha = 0.2 + Math.sin(now/80)*0.08;
+    ctx.fillStyle = "#94a3b8";
+    ctx.beginPath();
+    ctx.arc(0, 0, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // === Viking Axe Shape ===
+    // Handle
+    ctx.fillStyle = "#6b4010";
+    ctx.save();
+    ctx.fillRect(-2.5, -12, 5, 24);
+    // Handle grip wrapping
+    ctx.fillStyle = "#4a2c08";
+    for (let g = -8; g <= 8; g += 5) ctx.fillRect(-2.5, g, 5, 2);
+    ctx.restore();
+
+    // Main axe head (left blade — the large crescent)
+    ctx.fillStyle = "#8a8fa0";
+    ctx.beginPath();
+    ctx.moveTo(-2, -8);
+    ctx.lineTo(-14, -11);
+    ctx.lineTo(-18, -5);
+    ctx.lineTo(-16, 2);
+    ctx.lineTo(-10, 7);
+    ctx.lineTo(-2, 6);
+    ctx.closePath();
+    ctx.fill();
+
+    // Axe head highlight (sharp edge)
+    ctx.fillStyle = "#c8ccd8";
+    ctx.beginPath();
+    ctx.moveTo(-14, -11);
+    ctx.lineTo(-18, -5);
+    ctx.lineTo(-16, 2);
+    ctx.lineTo(-13, -10);
+    ctx.closePath();
+    ctx.fill();
+
+    // Secondary smaller blade (right side)
+    ctx.fillStyle = "#7a7f90";
+    ctx.beginPath();
+    ctx.moveTo(2, -6);
+    ctx.lineTo(10, -8);
+    ctx.lineTo(12, -3);
+    ctx.lineTo(10, 3);
+    ctx.lineTo(2, 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Small highlight on secondary blade
+    ctx.fillStyle = "#b0b4c0";
+    ctx.beginPath();
+    ctx.moveTo(10, -8);
+    ctx.lineTo(12, -3);
+    ctx.lineTo(10, -7);
+    ctx.closePath();
+    ctx.fill();
+
+    // Center rivet/boss
+    ctx.fillStyle = "#c8a000";
+    ctx.beginPath();
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#e8c000";
+    ctx.beginPath();
+    ctx.arc(-0.5, -0.5, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outline
+    ctx.strokeStyle = "#2a2a3a";
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(-2, -8);
+    ctx.lineTo(-14, -11);
+    ctx.lineTo(-18, -5);
+    ctx.lineTo(-16, 2);
+    ctx.lineTo(-10, 7);
+    ctx.lineTo(-2, 6);
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // Draw impact flashes
+  for (let i = impactFlashes.length - 1; i >= 0; i--) {
+    const fl = impactFlashes[i];
+    fl.t += dt;
+    if (fl.t > 0.35) { impactFlashes.splice(i, 1); continue; }
+    const progress = fl.t / 0.35;
+    const alpha = 1 - progress;
+    const radius = (fl.type === "hit" ? 18 : 12) * (0.4 + progress * 0.6);
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.85;
+    if (fl.type === "hit") {
+      // Enemy hit — orange/red burst
+      const g = ctx.createRadialGradient(fl.px, fl.py, 0, fl.px, fl.py, radius);
+      g.addColorStop(0, "#ffffff");
+      g.addColorStop(0.3, "#ff9900");
+      g.addColorStop(1, "rgba(255,60,0,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(fl.px, fl.py, radius, 0, Math.PI*2); ctx.fill();
+      // Impact lines
+      ctx.strokeStyle = "#ff9900"; ctx.lineWidth = 1.5;
+      for (let s = 0; s < 6; s++) {
+        const a = s * Math.PI / 3 + progress * Math.PI;
+        ctx.globalAlpha = alpha * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(fl.px + Math.cos(a)*5, fl.py + Math.sin(a)*5);
+        ctx.lineTo(fl.px + Math.cos(a)*radius*0.85, fl.py + Math.sin(a)*radius*0.85);
+        ctx.stroke();
+      }
+    } else {
+      // Wall/block hit — grey sparks
+      const g = ctx.createRadialGradient(fl.px, fl.py, 0, fl.px, fl.py, radius);
+      g.addColorStop(0, "#ffffff");
+      g.addColorStop(0.4, "#aaaacc");
+      g.addColorStop(1, "rgba(100,100,150,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(fl.px, fl.py, radius, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
   }
   for (const p of (players||[])) {
     if (p.dead) {
