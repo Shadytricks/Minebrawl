@@ -546,7 +546,8 @@ function drawSpriteSheet(ctx, heroId, frameIndex, cx, cy, size, flipX) {
   ctx.save();
   ctx.translate(cx, cy);
   if (flipX) { ctx.scale(-1, 1); }
-  ctx.drawImage(sheet, sx, sy, FRAME_SIZE, FRAME_SIZE, -drawSize/2, -drawSize/2, drawSize, drawSize);
+  // Anchor bottom-center: prevents body parts bleeding into adjacent tiles
+  ctx.drawImage(sheet, sx, sy, FRAME_SIZE, FRAME_SIZE, -drawSize/2, -drawSize * 0.92, drawSize, drawSize);
   ctx.restore();
   return true;
 }
@@ -1536,7 +1537,7 @@ function drawGame(gs, dt=1/60) {
       const cx = Math.round(p.px), cy = Math.round(p.py);
       const frameIdx = tickAnim(p.id, "death", 1/60);
       ctx.save(); ctx.globalAlpha = 0.6;
-      if (!drawSpriteSheet(ctx, p.hero, frameIdx, cx, cy-8, TILE*1.4)) {
+      if (!drawSpriteSheet(ctx, p.hero, frameIdx, cx, cy, TILE*1.7)) {
         drawSprite(ctx, p.color, h.dark, cx, cy, p.hero);
       }
       ctx.restore();
@@ -1640,7 +1641,7 @@ function drawGame(gs, dt=1/60) {
     }
 
     // Draw sprite — sheet if loaded, canvas fallback otherwise
-    const spriteDrawn = drawSpriteSheet(ctx, p.hero, frameIdx, 0, -8, TILE*1.4);
+    const spriteDrawn = drawSpriteSheet(ctx, p.hero, frameIdx, 0, 0, TILE*1.7);
     if (!spriteDrawn) drawSprite(ctx, p.color, h.dark, 0, 8, p.hero);
 
     // Always draw slash effect on top when attacking (both sheet and canvas)
