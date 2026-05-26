@@ -1345,146 +1345,113 @@ function drawGame(gs, dt=1/60) {
   }
   // ── Projectile rendering ─────────────────────────────────────────
   const now = Date.now();
-  const activeIds = new Set((projectiles||[]).map((_,i)=>i));
-
-  // Update trails
-  for (const [id, trail] of Object.entries(axeTrails)) {
-    for (const p of trail) p.age += dt;
-    axeTrails[id] = trail.filter(p => p.age < 0.18);
-  }
 
   for (let i = 0; i < (projectiles||[]).length; i++) {
     const proj = projectiles[i];
-    const pid = `${proj.owner}_${Math.round(proj.px/4)}_${Math.round(proj.py/4)}`;
+    if (!proj || proj.done) continue;
 
-    // Record trail point
-    if (!axeTrails[pid]) axeTrails[pid] = [];
-    axeTrails[pid].push({ px: proj.px, py: proj.py, age: 0 });
+    const cx = proj.px, cy = proj.py;
+    const spin = now / 90; // smooth fast spin
 
-    // Draw motion trail
-    const trail = axeTrails[pid];
-    for (let t = 0; t < trail.length; t++) {
-      const tp = trail[t];
-      const alpha = (1 - tp.age / 0.18) * 0.35;
-      const size = 3 * (1 - tp.age / 0.18);
+    // Motion trail — 4 ghost copies fading behind
+    const trailDist = 6;
+    const tdx = -(proj.dir?.x||0), tdy = -(proj.dir?.y||0);
+    for (let t = 1; t <= 4; t++) {
       ctx.save();
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = 0.12 * (5-t);
+      ctx.translate(cx + tdx*t*trailDist, cy + tdy*t*trailDist);
+      ctx.rotate(spin - t*0.4);
       ctx.fillStyle = "#94a3b8";
-      ctx.beginPath();
-      ctx.arc(tp.px, tp.py, size, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillRect(-7, -2, 14, 4);
+      ctx.fillRect(-2, -7, 4, 14);
       ctx.restore();
     }
 
-    // Wind slash lines behind axe
-    const tDir = { x: -(proj.dir?.x||0), y: -(proj.dir?.y||0) };
-    for (let s = 0; s < 3; s++) {
-      const offset = (s - 1) * 4;
-      const perp = { x: -tDir.y, y: tDir.x };
-      ctx.save();
-      ctx.globalAlpha = 0.15 + s * 0.05;
-      ctx.strokeStyle = "#b0c4de";
-      ctx.lineWidth = 1;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(proj.px + perp.x * offset, proj.py + perp.y * offset);
-      ctx.lineTo(
-        proj.px + perp.x * offset + tDir.x * (10 + s * 4),
-        proj.py + perp.y * offset + tDir.y * (10 + s * 4)
-      );
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // Draw the axe itself
-    const spin = now / 120; // spin speed
     ctx.save();
-    ctx.translate(proj.px, proj.py);
+    ctx.translate(cx, cy);
     ctx.rotate(spin);
 
-    // Outer glow
+    // Outer glow ring — makes it easy to spot
     ctx.save();
-    ctx.globalAlpha = 0.2 + Math.sin(now/80)*0.08;
-    ctx.fillStyle = "#94a3b8";
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, 11, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(0, 0, 13, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
 
-    // === Viking Axe Shape ===
     // Handle
-    ctx.fillStyle = "#6b4010";
-    ctx.save();
-    ctx.fillRect(-2.5, -12, 5, 24);
-    // Handle grip wrapping
-    ctx.fillStyle = "#4a2c08";
-    for (let g = -8; g <= 8; g += 5) ctx.fillRect(-2.5, g, 5, 2);
-    ctx.restore();
+    ctx.fillStyle = "#7a5020";
+    ctx.fillRect(-2, -13, 4, 26);
+    ctx.fillStyle = "#5a3810";
+    ctx.fillRect(-1, -13, 2, 26);
+    // Handle grip band
+    ctx.fillStyle = "#c8a000";
+    ctx.fillRect(-2, -2, 4, 4);
 
-    // Main axe head (left blade — the large crescent)
-    ctx.fillStyle = "#8a8fa0";
+    // Main blade (left/big crescent)
+    ctx.fillStyle = "#b0b8c8";
     ctx.beginPath();
-    ctx.moveTo(-2, -8);
-    ctx.lineTo(-14, -11);
-    ctx.lineTo(-18, -5);
-    ctx.lineTo(-16, 2);
-    ctx.lineTo(-10, 7);
-    ctx.lineTo(-2, 6);
+    ctx.moveTo(-2, -10);
+    ctx.lineTo(-15, -13);
+    ctx.lineTo(-20, -5);
+    ctx.lineTo(-18, 4);
+    ctx.lineTo(-9, 9);
+    ctx.lineTo(-2, 8);
     ctx.closePath();
     ctx.fill();
 
-    // Axe head highlight (sharp edge)
+    // Sharp edge highlight
+    ctx.fillStyle = "#dde3ef";
+    ctx.beginPath();
+    ctx.moveTo(-15, -13);
+    ctx.lineTo(-20, -5);
+    ctx.lineTo(-18, 4);
+    ctx.lineTo(-14, -12);
+    ctx.closePath();
+    ctx.fill();
+
+    // Counter blade (right/small)
+    ctx.fillStyle = "#9aa0b0";
+    ctx.beginPath();
+    ctx.moveTo(2, -8);
+    ctx.lineTo(12, -10);
+    ctx.lineTo(14, -3);
+    ctx.lineTo(11, 5);
+    ctx.lineTo(2, 6);
+    ctx.closePath();
+    ctx.fill();
+    // Counter blade edge
     ctx.fillStyle = "#c8ccd8";
     ctx.beginPath();
-    ctx.moveTo(-14, -11);
-    ctx.lineTo(-18, -5);
-    ctx.lineTo(-16, 2);
-    ctx.lineTo(-13, -10);
+    ctx.moveTo(12, -10);
+    ctx.lineTo(14, -3);
+    ctx.lineTo(12, -9);
     ctx.closePath();
     ctx.fill();
 
-    // Secondary smaller blade (right side)
-    ctx.fillStyle = "#7a7f90";
+    // Gold center rivet
+    ctx.fillStyle = "#e8b84b";
     ctx.beginPath();
-    ctx.moveTo(2, -6);
-    ctx.lineTo(10, -8);
-    ctx.lineTo(12, -3);
-    ctx.lineTo(10, 3);
-    ctx.lineTo(2, 4);
-    ctx.closePath();
+    ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffd060";
+    ctx.beginPath();
+    ctx.arc(-0.5, -0.5, 1.8, 0, Math.PI * 2);
     ctx.fill();
 
-    // Small highlight on secondary blade
-    ctx.fillStyle = "#b0b4c0";
-    ctx.beginPath();
-    ctx.moveTo(10, -8);
-    ctx.lineTo(12, -3);
-    ctx.lineTo(10, -7);
-    ctx.closePath();
-    ctx.fill();
-
-    // Center rivet/boss
-    ctx.fillStyle = "#c8a000";
-    ctx.beginPath();
-    ctx.arc(0, 0, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#e8c000";
-    ctx.beginPath();
-    ctx.arc(-0.5, -0.5, 1.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Outline
-    ctx.strokeStyle = "#2a2a3a";
-    ctx.lineWidth = 1.2;
-    ctx.lineCap = "round";
+    // Dark outline
+    ctx.strokeStyle = "#1a1a2a";
+    ctx.lineWidth = 1.5;
     ctx.lineJoin = "round";
     ctx.beginPath();
-    ctx.moveTo(-2, -8);
-    ctx.lineTo(-14, -11);
-    ctx.lineTo(-18, -5);
-    ctx.lineTo(-16, 2);
-    ctx.lineTo(-10, 7);
-    ctx.lineTo(-2, 6);
+    ctx.moveTo(-2, -10);
+    ctx.lineTo(-15, -13);
+    ctx.lineTo(-20, -5);
+    ctx.lineTo(-18, 4);
+    ctx.lineTo(-9, 9);
+    ctx.lineTo(-2, 8);
     ctx.closePath();
     ctx.stroke();
 
@@ -1498,18 +1465,16 @@ function drawGame(gs, dt=1/60) {
     if (fl.t > 0.35) { impactFlashes.splice(i, 1); continue; }
     const progress = fl.t / 0.35;
     const alpha = 1 - progress;
-    const radius = (fl.type === "hit" ? 18 : 12) * (0.4 + progress * 0.6);
+    const radius = (fl.type === "hit" ? 18 : 10) * (0.4 + progress * 0.6);
     ctx.save();
     ctx.globalAlpha = alpha * 0.85;
     if (fl.type === "hit") {
-      // Enemy hit — orange/red burst
       const g = ctx.createRadialGradient(fl.px, fl.py, 0, fl.px, fl.py, radius);
       g.addColorStop(0, "#ffffff");
       g.addColorStop(0.3, "#ff9900");
       g.addColorStop(1, "rgba(255,60,0,0)");
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(fl.px, fl.py, radius, 0, Math.PI*2); ctx.fill();
-      // Impact lines
       ctx.strokeStyle = "#ff9900"; ctx.lineWidth = 1.5;
       for (let s = 0; s < 6; s++) {
         const a = s * Math.PI / 3 + progress * Math.PI;
@@ -1520,7 +1485,6 @@ function drawGame(gs, dt=1/60) {
         ctx.stroke();
       }
     } else {
-      // Wall/block hit — grey sparks
       const g = ctx.createRadialGradient(fl.px, fl.py, 0, fl.px, fl.py, radius);
       g.addColorStop(0, "#ffffff");
       g.addColorStop(0.4, "#aaaacc");
@@ -1647,16 +1611,20 @@ function drawGame(gs, dt=1/60) {
     // Always draw slash effect on top when attacking (both sheet and canvas)
     if (p.swordActive) drawSlashEffect(ctx, p, TILE);
 
-    // "You" indicator — small arrow above name instead of ring
+    // "You" indicator arrow — above name tag
     if (p.id === myId) {
-      ctx.fillStyle = "rgba(255,255,255,0.7)";
-      ctx.beginPath(); ctx.moveTo(0,-40); ctx.lineTo(-4,-34); ctx.lineTo(4,-34); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.beginPath(); ctx.moveTo(0,-62); ctx.lineTo(-5,-56); ctx.lineTo(5,-56); ctx.closePath(); ctx.fill();
     }
 
-    // Name tag
-    ctx.font = "bold 9px 'Share Tech Mono',monospace"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(-20,-37,40,11);
-    ctx.fillStyle = p.color; ctx.fillText(p.name.slice(0,10), 0, -27);
+    // Name tag — positioned above sprite top
+    const nameY = -52;
+    ctx.font = "bold 9px 'Share Tech Mono',monospace";
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(-21, nameY-10, 42, 12);
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.name.slice(0,10), 0, nameY);
 
     ctx.restore();
   }
