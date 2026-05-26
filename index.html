@@ -210,7 +210,7 @@ const HEROES = [
   {id:"bjorn",    name:"Bjorn Ironside",color:"#94a3b8", dark:"#475569", female:false, ability:"Axe Throw",         desc:"Throw axe forward. 3 charges, 15s regen each.", cd:15},
   {id:"achilles", name:"Achilles",      color:"#f87171", dark:"#dc2626", female:false, ability:"Spear Spin",        desc:"Spinning spears orbit you for 3s — damages enemies.", cd:15},
   {id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"Passive: Always sees bomb zones, timers and danger tiles.", cd:0},
-  {id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Push",       desc:"Push a nearby bomb 3 tiles in your facing direction. Your bombs have +2 blast range.", cd:15},
+  {id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Keg",        desc:"Passive: All bombs have +2 blast range (5 tiles).", cd:0},
 ];
 
 // ── Sound ─────────────────────────────────────────────────────────────────────
@@ -349,7 +349,7 @@ function getPlayerAnim(p) {
     return "walkRight";
   }
   // Only show ability animation for heroes where it's a triggered state, not Sun Tzu (always active)
-  if (p.abilityActive && p.hero !== "suntzu") return "ability";
+  if (p.abilityActive && p.hero !== "suntzu" && p.hero !== "blackbeard") return "ability";
   if (p.moving) {
     const dx = p.swordDir?.x || 0, dy = p.swordDir?.y || 0;
     if (dy > 0) return "walkDown";
@@ -1068,7 +1068,10 @@ function renderHUD(players) {
           ${used ? '✗ USED' : '✓ READY'}
         </div>`;
 
-    } else if (p.hero === "suntzu") {
+    } else if (p.hero === "blackbeard") {
+      abilityHtml = `
+        <div class="phud-hero" style="color:${h.color}">${h.ability}</div>
+        <div style="font-size:8px;color:#c084fc;letter-spacing:1px">✓ ALWAYS ACTIVE</div>`;
       // Always active passive
       abilityHtml = `
         <div class="phud-hero" style="color:${h.color}">${h.ability}</div>
@@ -1422,21 +1425,8 @@ function drawGame(gs, dt=1/60) {
       ctx.beginPath();ctx.arc(Math.cos(a)*17,Math.sin(a)*17-8,2.5,0,Math.PI*2);ctx.fill();
       ctx.restore();
     }
-    // Blackbeard push ready indicator — show arrow in facing direction
-    if (p.hero==="blackbeard" && p.abilityCD<=0) {
-      const dx=p.swordDir?.x||0, dy=p.swordDir?.y||0;
-      ctx.save();
-      ctx.globalAlpha=0.5+Math.sin(Date.now()/200)*0.25;
-      ctx.fillStyle="#c084fc";
-      ctx.beginPath();
-      const ax=dx*22, ay=dy*22-8;
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(ax-dy*5-dx*8, ay+dx*5-dy*8);
-      ctx.lineTo(ax+dy*5-dx*8, ay-dx*5-dy*8);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
+    // Blackbeard passive indicator — subtle purple glow on bombs
+
 
     // Draw sprite — sheet if loaded, canvas fallback otherwise
     const spriteDrawn = drawSpriteSheet(ctx, p.hero, frameIdx, 0, -8, TILE*1.4);
