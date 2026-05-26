@@ -227,11 +227,28 @@ const SFX=(()=>{
     sword(){play((c,d)=>{const o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();f.type="bandpass";f.frequency.value=900;f.Q.value=0.4;o.type="sawtooth";o.connect(f);f.connect(g);g.connect(d);o.frequency.setValueAtTime(700,c.currentTime);o.frequency.exponentialRampToValueAtTime(200,c.currentTime+0.12);g.gain.setValueAtTime(0.3,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.15);o.start();o.stop(c.currentTime+0.15);});},
     hurt(){play((c,d)=>{const o=c.createOscillator(),g=c.createGain();o.type="square";o.connect(g);g.connect(d);o.frequency.setValueAtTime(320,c.currentTime);o.frequency.exponentialRampToValueAtTime(80,c.currentTime+0.18);g.gain.setValueAtTime(0.25,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.2);o.start();o.stop(c.currentTime+0.2);});},
     ability(){play((c,d)=>{[440,550,660].forEach((f2,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(d);o.frequency.value=f2;const t=c.currentTime+i*0.07;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.2,t+0.04);g.gain.exponentialRampToValueAtTime(0.001,t+0.2);o.start(t);o.stop(t+0.2);});});},
+    resurrect(){play((c,d)=>{
+      [[261,0],[329,0.08],[392,0.16],[523,0.28],[659,0.4],[784,0.55]].forEach(([freq,when])=>{
+        const o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
+        f.type="bandpass";f.frequency.value=freq*1.5;f.Q.value=2;
+        o.type="sine";o.frequency.value=freq;o.connect(f);f.connect(g);g.connect(d);
+        const t=c.currentTime+when;
+        g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.18,t+0.06);
+        g.gain.exponentialRampToValueAtTime(0.001,t+0.7);
+        o.start(t);o.stop(t+0.7);
+      });
+      const o2=c.createOscillator(),g2=c.createGain();
+      o2.type="triangle";o2.frequency.setValueAtTime(1200,c.currentTime);
+      o2.frequency.linearRampToValueAtTime(2400,c.currentTime+0.8);
+      g2.gain.setValueAtTime(0,c.currentTime);g2.gain.linearRampToValueAtTime(0.08,c.currentTime+0.3);
+      g2.gain.exponentialRampToValueAtTime(0.001,c.currentTime+1.0);
+      o2.connect(g2);g2.connect(d);o2.start();o2.stop(c.currentTime+1.0);
+    });},
     win(){play((c,d)=>{[523,659,784,1047].forEach((f2,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(d);o.frequency.value=f2;const t=c.currentTime+i*0.13;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.05);g.gain.exponentialRampToValueAtTime(0.001,t+0.35);o.start(t);o.stop(t+0.35);});});}
   };
 })();
 
-let prevMines=0,prevExps=0,prevHPs={},prevOver=false,prevDead={};
+let prevMines=0,prevExps=0,prevHPs={},prevOver=false,prevDead={},prevAbilityUsed={};
 const reviveAnims = {}; // playerId -> { t: elapsed ms, px, py }
 
 function detectSounds(gs){
@@ -242,13 +259,14 @@ function detectSounds(gs){
   prevExps=(gs.explosions||[]).length;
   (gs.players||[]).forEach(p=>{
     if(prevHPs[p.id]!==undefined&&p.hp<prevHPs[p.id])SFX.hurt();
-    // Detect Cleopatra revive: was dead, now alive with abilityUsed
-    if(p.hero==="cleo" && prevDead[p.id]===true && !p.dead && p.abilityUsed) {
+    // Detect Cleopatra revive: abilityUsed flips false→true
+    if(p.hero==="cleo" && !prevAbilityUsed[p.id] && p.abilityUsed) {
       reviveAnims[p.id] = { t: 0, px: p.px, py: p.py };
-      SFX.ability();
+      SFX.resurrect();
     }
     prevHPs[p.id]=p.hp;
     prevDead[p.id]=p.dead;
+    prevAbilityUsed[p.id]=p.abilityUsed;
   });
   if(gs.over&&!prevOver)SFX.win();
   prevOver=gs.over||false;
@@ -959,6 +977,7 @@ function startGame() {
   Object.keys(animStates).forEach(k => delete animStates[k]);
   Object.keys(reviveAnims).forEach(k => delete reviveAnims[k]);
   Object.keys(prevDead).forEach(k => delete prevDead[k]);
+  Object.keys(prevAbilityUsed).forEach(k => delete prevAbilityUsed[k]);
   spaceHeld = false; fHeld = false; dHeld = false;
   keys = {};
   showScreen("game");
