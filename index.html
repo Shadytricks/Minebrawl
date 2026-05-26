@@ -12,12 +12,13 @@
   --text:#e2e8f0;--muted:#94a3b8;--dim:#475569;
   --purple:#a855f7;--purple2:#7c3aed;--green:#4ade80;--red:#f87171;
 }
-html,body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;display:flex;justify-content:center;padding:20px 12px 60px;}
-#app{width:100%;max-width:660px;}
+html,body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;display:flex;justify-content:center;padding:20px 12px 60px;overflow-y:auto;scrollbar-width:none;}
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none;}
+#app{width:100%;max-width:520px;}
 .gtitle{font-family:'Press Start 2P',monospace;font-size:clamp(16px,5vw,24px);text-align:center;color:var(--purple);letter-spacing:3px;margin-bottom:6px;padding-top:8px;}
 .gsub{text-align:center;font-size:11px;color:var(--muted);letter-spacing:4px;margin-bottom:28px;}
 .screen{display:none;}.screen.active{display:block;}
-.card{background:var(--surf);border:1px solid var(--bord);border-radius:12px;padding:20px 22px;margin-bottom:14px;width:100%;box-sizing:border-box;}
+.card{background:var(--surf);border:1px solid var(--bord);border-radius:12px;padding:20px 22px;margin-bottom:14px;width:100%;box-sizing:border-box;max-width:100%;overflow:hidden;}
 .clabel{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;font-weight:bold;display:block;}
 input[type=text]{width:100%;padding:13px 16px;background:var(--surf2);border:1px solid var(--bord);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:14px;outline:none;transition:border-color .15s;margin-bottom:12px;}
 input[type=text]:focus{border-color:var(--purple2);}
@@ -57,8 +58,8 @@ input[type=text]::placeholder{color:var(--dim);}
 .hbtn-name{font-size:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .hbtn.sel .hbtn-name{color:var(--hc);font-weight:bold;}
 .hbtn-ab{font-size:7px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.hero-info{background:var(--surf2);border:1px solid var(--bord);border-radius:8px;padding:10px 14px;font-size:10px;color:var(--muted);height:58px;margin-top:4px;overflow:hidden;width:100%;box-sizing:border-box;}
-.hero-info strong{display:block;font-size:11px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hero-info{background:#0d1f3c;border:1px solid #2d4a7a;border-radius:8px;padding:10px 14px;font-size:10px;color:#94a3b8;height:62px;margin-top:6px;overflow:hidden;width:100%;box-sizing:border-box;}
+.hero-info strong{display:block;font-size:12px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;letter-spacing:.5px;}
 
 /* Lobby */
 .lcode-wrap{text-align:center;margin-bottom:20px;}
@@ -202,7 +203,7 @@ const HEROES = [
   {id:"cleo",     name:"Cleopatra",     color:"#38bdf8", dark:"#0284c7", female:true,  ability:"Blessing of Gods",  desc:"Revive once upon death with 1 HP + 2s shield.", cd:0},
   {id:"bjorn",    name:"Bjorn Ironside",color:"#94a3b8", dark:"#475569", female:false, ability:"Axe Throw",         desc:"Throw axe forward. 3 charges, 30s regen each.", cd:30},
   {id:"achilles", name:"Achilles",      color:"#f87171", dark:"#dc2626", female:false, ability:"Spear Spin",        desc:"Spinning spears orbit you for 3s — damages enemies.", cd:30},
-  {id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"Reveals bomb zones and timers for 8s.", cd:30},
+  {id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"Reveals bomb zones and timers for 8s.", cd:20},
   {id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Toss",       desc:"Throw bombs forward 3 tiles for 5s.", cd:30},
 ];
 
@@ -266,14 +267,27 @@ const ANIM = {
 const spriteSheets = {};
 const HERO_IDS = ["caesar","cleo","bjorn","achilles","suntzu","blackbeard"];
 
+const emptyFrames = {}; // heroId -> Set of empty frame indices
+
 function loadSpriteSheets() {
   let loaded = 0;
   HERO_IDS.forEach(id => {
     const img = new Image();
     img.onload = () => {
       spriteSheets[id] = img;
+      // Detect empty frames using offscreen canvas
+      const oc = document.createElement('canvas');
+      oc.width = 288; oc.height = 288;
+      const octx = oc.getContext('2d');
+      octx.drawImage(img, 0, 0);
+      emptyFrames[id] = new Set();
+      for (let fi = 0; fi < 36; fi++) {
+        const fc = fi % 6, fr = Math.floor(fi / 6);
+        const px = octx.getImageData(fc*48+4, fr*48+4, 40, 40);
+        const hasPixel = px.data.some((v,i) => i%4===3 && v > 10);
+        if (!hasPixel) emptyFrames[id].add(fi);
+      }
       loaded++;
-      // Redraw this hero's card with the real sprite sheet
       redrawHeroCard(id);
     };
     img.onerror = () => {};
@@ -397,8 +411,10 @@ function tickAnim(playerId, animName, dt) {
 function drawSpriteSheet(ctx, heroId, frameIndex, cx, cy, size, flipX) {
   const sheet = spriteSheets[heroId];
   if (!sheet) return false;
-  const col = frameIndex % SHEET_COLS;
-  const row = Math.floor(frameIndex / SHEET_COLS);
+  // Fall back to idle frame 0 if this frame is empty
+  const fi = (emptyFrames[heroId]?.has(frameIndex)) ? 0 : frameIndex;
+  const col = fi % SHEET_COLS;
+  const row = Math.floor(fi / SHEET_COLS);
   const sx = col * FRAME_SIZE, sy = row * FRAME_SIZE;
   const drawSize = size || TILE;
   ctx.save();
@@ -762,14 +778,16 @@ function handleMsg(msg) {
 
 // ── Lobby actions ─────────────────────────────────────────────────────────────
 function createLobby() {
-  const name = $("inp-name").value.trim() || "Player";
+  const name = $("inp-name").value.trim();
+  if (!name) { setErr("home-err", "Please enter a nickname first!"); $("inp-name").focus(); return; }
   if (!myColor) { setErr("home-err", "Pick a color first!"); return; }
   console.log("createLobby — hero:", myHero, "color:", myColor, "name:", name);
   ensureConnected(() => sendWS({ type: "create_lobby", playerId: myId, name, color: myColor, hero: myHero }));
 }
 
 function joinLobby() {
-  const name = $("inp-name").value.trim() || "Player";
+  const name = $("inp-name").value.trim();
+  if (!name) { setErr("home-err", "Please enter a nickname first!"); $("inp-name").focus(); return; }
   if (!myColor) { setErr("home-err", "Pick a color first!"); return; }
   const code = $("inp-code").value.trim().toUpperCase();
   if (code.length !== 4) { setErr("home-err", "Enter a 4-letter code."); return; }
@@ -847,6 +865,10 @@ function startGame() {
   canvas.width = COLS * TILE; canvas.height = ROWS * TILE;
   $("win-banner").style.display = "none";
   prevMines = 0; prevExps = 0; prevHPs = {}; prevOver = false;
+  // Clear animation states and input so nothing carries over
+  Object.keys(animStates).forEach(k => delete animStates[k]);
+  spaceHeld = false; fHeld = false; dHeld = false;
+  keys = {};
   showScreen("game");
   if (animFrame) cancelAnimationFrame(animFrame);
   drawLoop(); startInputLoop();
@@ -871,7 +893,8 @@ function renderHUD(players) {
   let html = "";
   for (const p of players) {
     const h = heroOf(p);
-    const cdp = p.abilityCD > 0 ? Math.round((1 - p.abilityCD / 30) * 100) : 100;
+    const maxCD = h.cd || 30;
+    const cdp = p.abilityCD > 0 ? Math.round((1 - p.abilityCD / maxCD) * 100) : 100;
     const maxHP = p.hero === "cleo" ? 4 : 3;
     html += `<div class="phud${p.dead ? " dead" : ""}" style="border-color:${p.color}66">
       <div class="phud-top"><div class="phud-dot" style="background:${p.color}"></div><span class="phud-name" style="color:${p.color}">${p.name}</span></div>
@@ -906,7 +929,17 @@ function drawGame(gs) {
     const cx=m.tx*TILE+TILE/2,cy=m.ty*TILE+TILE/2,pulse=Math.sin(Date.now()/130)*0.25+0.75;
     const own=(players||[]).find(p=>p.id===m.owner); const col=own?own.color:"#f87171";
     ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,TILE/3,0,Math.PI*2); ctx.fillStyle=col+Math.round(pulse*180).toString(16).padStart(2,"0"); ctx.fill(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke();
-    ctx.font=`${TILE-8}px sans-serif`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("💣",cx,cy); ctx.restore();
+    ctx.font=`${TILE-8}px sans-serif`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("💣",cx,cy);
+    // Show countdown if Sun Tzu ability active for any player
+    const suntzuActive = (players||[]).some(p=>p.id===myId&&p.hero==="suntzu"&&p.abilityActive);
+    if (suntzuActive && m.timer !== undefined) {
+      const secs = Math.ceil(m.timer);
+      ctx.font=`bold ${TILE-10}px 'Share Tech Mono',monospace`;
+      ctx.fillStyle="#ffffff";
+      ctx.textBaseline="bottom";
+      ctx.fillText(secs, cx, cy - TILE/3 - 2);
+    }
+    ctx.restore();
   }
   for (const proj of (projectiles||[])) {
     ctx.save(); ctx.translate(proj.px,proj.py); ctx.rotate(Date.now()/100); ctx.fillStyle="#94a3b8"; ctx.fillRect(-5,-2,10,4); ctx.fillRect(-2,-5,4,10); ctx.restore();
@@ -933,10 +966,62 @@ function drawGame(gs) {
 
     ctx.save(); ctx.translate(cx, cy);
 
-    // Achilles spear spin
+    // Achilles spear spin - improved circular animation
     if (p.abilityActive && p.hero==="achilles") {
-      const t=Date.now()/400;
-      for(let i=0;i<3;i++){const a=t+i*(Math.PI*2/3),sx=Math.cos(a)*18,sy=Math.sin(a)*18;ctx.save();ctx.translate(sx,sy-8);ctx.rotate(a);ctx.fillStyle="#f87171";ctx.fillRect(-1,-8,2,16);ctx.restore();}
+      const t = Date.now() / 300;
+      const numSpears = 3;
+      const orbitR = 20;
+      // Circular energy ring
+      ctx.save();
+      ctx.globalAlpha = 0.35 + Math.sin(t*2)*0.1;
+      ctx.strokeStyle = "#f87171";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, -8, orbitR+2, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = "#f87171";
+      ctx.fill();
+      ctx.restore();
+      // Orbiting spears
+      for (let i = 0; i < numSpears; i++) {
+        const a = t + i * (Math.PI*2/numSpears);
+        const sx = Math.cos(a) * orbitR;
+        const sy = Math.sin(a) * orbitR;
+        ctx.save();
+        ctx.translate(sx, sy - 8);
+        ctx.rotate(a + Math.PI/2);
+        // Spear shaft
+        ctx.fillStyle = "#b8860b";
+        ctx.fillRect(-1.5, -10, 3, 16);
+        // Spear tip
+        ctx.fillStyle = "#e0e0f0";
+        ctx.beginPath();
+        ctx.moveTo(0, -14);
+        ctx.lineTo(-3, -8);
+        ctx.lineTo(3, -8);
+        ctx.closePath();
+        ctx.fill();
+        // Spear glow
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = "#f87171";
+        ctx.beginPath();
+        ctx.arc(0, -10, 4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+      // Trailing energy particles
+      for (let i = 0; i < 6; i++) {
+        const pa = t*1.5 + i * (Math.PI*2/6);
+        const pr = orbitR * (0.7 + Math.sin(t+i)*0.3);
+        ctx.save();
+        ctx.globalAlpha = 0.3 + Math.sin(t+i)*0.2;
+        ctx.fillStyle = "#f87171";
+        ctx.beginPath();
+        ctx.arc(Math.cos(pa)*pr, Math.sin(pa)*pr - 8, 1.5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
     }
     // Caesar shield
     if (p.shieldActive) {
