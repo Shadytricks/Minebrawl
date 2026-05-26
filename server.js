@@ -87,7 +87,7 @@ function buildGameState() {
       swordCD:0, abilityCD:0,
       swordActive:false, swordTimer:0, swordDir:{x:0,y:1},
       invincible:0, shieldActive:false,
-      abilityUsed:false, abilityActive:false, abilityTimer:0,
+      abilityUsed:false, abilityActive: p.hero==="suntzu" ? true : false, abilityTimer:0,
       axeCharges:3, axeRegenTimer:0,
       inputDir:null, wantMine:false, wantSword:false, wantAbility:false,
     })),
@@ -161,8 +161,8 @@ function useAbility(p,gs) {
     gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
   }
   else if (h==="suntzu") {
-    p.abilityActive=true; p.abilityTimer=8; p.abilityCD=20;
-    gs.events=gs.events||[]; gs.events.push({type:"ability",id:p.id,hero:h});
+    // Passive — always active, D key does nothing
+    return;
   }
   else if (h==="blackbeard") {
     p.abilityActive=true; p.abilityTimer=5; p.abilityCD=15;
@@ -188,10 +188,12 @@ function tickGame(gs,dt) {
     }
 
     // Ability timer
-    if (p.abilityActive) {
+    if (p.abilityActive && p.hero !== "suntzu") {
       p.abilityTimer=Math.max(0,p.abilityTimer-dt);
       if (p.abilityTimer<=0) p.abilityActive=false;
     }
+    // Sun Tzu is always active
+    if (p.hero==="suntzu") p.abilityActive=true;
 
     // Achilles spear spin damage
     if (p.abilityActive&&p.hero==="achilles") {
