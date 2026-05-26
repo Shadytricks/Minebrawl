@@ -303,6 +303,78 @@ function getPlayerAnim(p) {
   return "idle";
 }
 
+function drawSlashEffect(ctx, p, TILE) {
+  if (!p.swordActive || !p.swordDir) return;
+  const progress = Math.min(1, (p.swordTimer || 0) / 0.3);
+  const dx = p.swordDir.x;
+  const dy = p.swordDir.y;
+
+  ctx.save();
+
+  // Rotate entire effect to face attack direction
+  const angle = Math.atan2(dy, dx);
+  ctx.rotate(angle + Math.PI / 2); // offset so "forward" = up in local space
+
+  const reach = TILE * 1.1;
+
+  // Weapon blade — extends forward from player
+  ctx.globalAlpha = Math.min(1, progress * 2);
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(0, -4);
+  ctx.lineTo(0, -4 - reach);
+  ctx.stroke();
+
+  // Crossguard
+  ctx.strokeStyle = p.color;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-5, -6);
+  ctx.lineTo(5, -6);
+  ctx.stroke();
+
+  // Blade shine
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-1, -8);
+  ctx.lineTo(-1, -4 - reach * 0.8);
+  ctx.stroke();
+
+  // Slash arc — sweeping effect
+  ctx.globalAlpha = progress * 0.7;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  const swingAngle = (1 - progress) * Math.PI * 0.5 - Math.PI * 0.25;
+  ctx.beginPath();
+  ctx.arc(0, -8, reach * 0.85, -Math.PI/2 - Math.PI*0.35, -Math.PI/2 + Math.PI*0.35);
+  ctx.stroke();
+
+  // Color trail
+  ctx.strokeStyle = p.color;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = progress * 0.5;
+  ctx.beginPath();
+  ctx.arc(0, -8, reach, -Math.PI/2 - Math.PI*0.25, -Math.PI/2 + Math.PI*0.25);
+  ctx.stroke();
+
+  // Tip sparkle
+  ctx.globalAlpha = progress;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(0, -4 - reach, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = p.color;
+  ctx.beginPath();
+  ctx.arc(0, -4 - reach, 1, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function tickAnim(playerId, animName, dt) {
   const state = getAnimState(playerId);
   const def = ANIM[animName] || ANIM.idle;
@@ -850,6 +922,9 @@ function drawGame(gs) {
     const spriteDrawn = drawSpriteSheet(ctx, p.hero, frameIdx, 0, -8, TILE*1.4);
     if (!spriteDrawn) drawSprite(ctx, p.color, h.dark, 0, 8, p.hero);
 
+    // Always draw slash effect on top when attacking (both sheet and canvas)
+    if (p.swordActive) drawSlashEffect(ctx, p, TILE);
+
     // "You" indicator — small arrow above name instead of ring
     if (p.id === myId) {
       ctx.fillStyle = "rgba(255,255,255,0.7)";
@@ -860,24 +935,6 @@ function drawGame(gs) {
     ctx.font = "bold 9px 'Share Tech Mono',monospace"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
     ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(-20,-37,40,11);
     ctx.fillStyle = p.color; ctx.fillText(p.name.slice(0,10), 0, -27);
-
-    // Sword slash — only when using canvas fallback (sprite sheet uses attack animation frames)
-    if (!spriteSheets[p.hero] && p.swordActive && p.swordDir) {
-      const sx=p.swordDir.x*TILE, sy=p.swordDir.y*TILE;
-      const progress = (p.swordTimer||0) / 0.3;
-      // Draw a clean arc slash effect
-      ctx.save();
-      ctx.globalAlpha = progress * 0.8;
-      ctx.strokeStyle = p.color; ctx.lineWidth = 3; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(0,-8); ctx.lineTo(sx*0.8, sy*0.8-8); ctx.stroke();
-      // Weapon glint
-      ctx.globalAlpha = progress;
-      ctx.fillStyle = "#e2e8f0";
-      ctx.save(); ctx.translate(sx*0.8, sy*0.8-8); ctx.rotate(Math.atan2(sy,sx));
-      ctx.fillRect(-1,-10,2,20); ctx.fillStyle=p.color; ctx.fillRect(-5,-1,10,3);
-      ctx.restore();
-      ctx.restore();
-    }
 
     ctx.restore();
   }
