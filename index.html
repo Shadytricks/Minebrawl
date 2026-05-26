@@ -267,10 +267,16 @@ const spriteSheets = {};
 const HERO_IDS = ["caesar","cleo","bjorn","achilles","suntzu","blackbeard"];
 
 function loadSpriteSheets() {
+  let loaded = 0;
   HERO_IDS.forEach(id => {
     const img = new Image();
-    img.onload = () => { spriteSheets[id] = img; };
-    img.onerror = () => {}; // silently fall back to canvas drawing
+    img.onload = () => {
+      spriteSheets[id] = img;
+      loaded++;
+      // Redraw this hero's card with the real sprite sheet
+      redrawHeroCard(id);
+    };
+    img.onerror = () => {};
     img.src = `sprites/${id}.png`;
   });
 }
@@ -611,7 +617,9 @@ function buildHeroGrid(containerId, infoId) {
 
     const cv = document.createElement("canvas");
     cv.width = 44; cv.height = 52;
-    const ctx2=cv.getContext("2d"); drawSprite(ctx2, h.color, h.dark, cv.width/2, cv.height-8, h.id);
+    cv.dataset.heroCanvas = h.id; // so we can find it later
+    const ctx2=cv.getContext("2d");
+    drawHeroCardSprite(ctx2, h.id, cv.width, cv.height);
 
     const nm = document.createElement("div");
     nm.className = "hbtn-name";
@@ -626,18 +634,39 @@ function buildHeroGrid(containerId, infoId) {
     btn.appendChild(ab);
 
     btn.addEventListener("click", () => {
-      // Mark selected in this grid only
       container.querySelectorAll(".hbtn").forEach(b => b.classList.remove("sel"));
       btn.classList.add("sel");
-      // Update info box
       const info = document.getElementById(infoId);
       if (info) info.innerHTML = `<strong style="color:${h.color}">${h.name} — ${h.ability}</strong>${h.desc} (CD: ${h.cd > 0 ? h.cd+"s" : "Passive"})`;
-      // Update selected hero
       myHero = h.id;
       console.log("Hero selected:", myHero);
     });
 
     container.appendChild(btn);
+  });
+}
+
+function drawHeroCardSprite(ctx, heroId, w, h) {
+  ctx.clearRect(0, 0, w, h);
+  const sheet = spriteSheets[heroId];
+  if (sheet) {
+    // Draw idle frame 0 from sprite sheet, centered and scaled
+    const frameSize = 48;
+    const drawSize = Math.min(w, h) - 4;
+    ctx.drawImage(sheet, 0, 0, frameSize, frameSize,
+      (w - drawSize)/2, (h - drawSize)/2, drawSize, drawSize);
+  } else {
+    // Canvas fallback
+    const hero = HEROES.find(hh => hh.id === heroId);
+    if (hero) drawSprite(ctx, hero.color, hero.dark, w/2, h-8, heroId);
+  }
+}
+
+function redrawHeroCard(heroId) {
+  // Find all canvases for this hero across all grids and redraw
+  document.querySelectorAll(`canvas[data-hero-canvas="${heroId}"]`).forEach(cv => {
+    const ctx = cv.getContext("2d");
+    drawHeroCardSprite(ctx, heroId, cv.width, cv.height);
   });
 }
 
