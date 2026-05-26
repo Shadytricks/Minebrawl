@@ -1611,20 +1611,30 @@ function drawGame(gs, dt=1/60) {
     // Always draw slash effect on top when attacking (both sheet and canvas)
     if (p.swordActive) drawSlashEffect(ctx, p, TILE);
 
-    // "You" indicator arrow — above name tag
+    // "You" indicator arrow — well above sprite
     if (p.id === myId) {
-      ctx.fillStyle = "rgba(255,255,255,0.75)";
-      ctx.beginPath(); ctx.moveTo(0,-62); ctx.lineTo(-5,-56); ctx.lineTo(5,-56); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.beginPath(); ctx.moveTo(0,-72); ctx.lineTo(-5,-66); ctx.lineTo(5,-66); ctx.closePath(); ctx.fill();
     }
 
-    // Name tag — positioned above sprite top
-    const nameY = -52;
+    // Name tag — floats clearly above hero
+    const nameY = -62;
+    const name = p.name.slice(0,10);
     ctx.font = "bold 9px 'Share Tech Mono',monospace";
-    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-    ctx.fillStyle = "rgba(0,0,0,0.65)";
-    ctx.fillRect(-21, nameY-10, 42, 12);
+    ctx.textAlign = "center";
+    const nameW = ctx.measureText(name).width;
+    // Background pill
+    ctx.fillStyle = "rgba(0,0,0,0.72)";
+    ctx.beginPath();
+    ctx.roundRect(-nameW/2-5, nameY-11, nameW+10, 13, 3);
+    ctx.fill();
+    // Colored border line at bottom of pill
     ctx.fillStyle = p.color;
-    ctx.fillText(p.name.slice(0,10), 0, nameY);
+    ctx.fillRect(-nameW/2-5, nameY+1, nameW+10, 2);
+    // Name text
+    ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(name, 0, nameY);
 
     ctx.restore();
   }
