@@ -98,6 +98,12 @@ input[type=text]::placeholder{color:var(--dim);}
 .phud-hero{font-size:9px;color:var(--muted);margin-bottom:4px;}
 .phud-cdbar{height:5px;background:var(--bord2);border-radius:3px;overflow:hidden;}
 .phud-cdfill{height:100%;border-radius:3px;transition:width .1s;}
+/* Bjorn charge indicators */
+.phud-charges{display:flex;gap:4px;align-items:center;margin-top:2px;}
+.charge-pip{position:relative;width:18px;height:18px;border-radius:4px;overflow:hidden;flex-shrink:0;}
+.charge-pip-bg{position:absolute;inset:0;background:#1e293b;border:1px solid #334155;border-radius:4px;}
+.charge-pip-fill{position:absolute;bottom:0;left:0;right:0;border-radius:0 0 3px 3px;transition:height .3s;}
+.charge-pip-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;z-index:1;}
 canvas#gc{display:block;width:100%;border:2px solid var(--bord);border-radius:8px;image-rendering:pixelated;}
 #gcontrols{text-align:center;font-size:10px;color:var(--dim);margin-top:8px;letter-spacing:1px;}
 #sndbar{display:flex;align-items:center;gap:10px;margin-top:10px;padding:8px 12px;background:var(--surf);border:1px solid var(--bord);border-radius:9px;}
@@ -199,12 +205,12 @@ const SERVER_URL = "wss://minebrawl-production-747b.up.railway.app";
 const TILE=28, COLS=18, ROWS=18;
 
 const HEROES = [
-  {id:"caesar",   name:"Julius Caesar", color:"#e8b84b", dark:"#a07820", female:false, ability:"Imperial Shield",   desc:"3s invincibility — cannot take damage.", cd:30},
+  {id:"caesar",   name:"Julius Caesar", color:"#e8b84b", dark:"#a07820", female:false, ability:"Imperial Shield",   desc:"3s invincibility — cannot take damage.", cd:15},
   {id:"cleo",     name:"Cleopatra",     color:"#38bdf8", dark:"#0284c7", female:true,  ability:"Blessing of Gods",  desc:"Revive once upon death with 1 HP + 2s shield.", cd:0},
-  {id:"bjorn",    name:"Bjorn Ironside",color:"#94a3b8", dark:"#475569", female:false, ability:"Axe Throw",         desc:"Throw axe forward. 3 charges, 30s regen each.", cd:30},
-  {id:"achilles", name:"Achilles",      color:"#f87171", dark:"#dc2626", female:false, ability:"Spear Spin",        desc:"Spinning spears orbit you for 3s — damages enemies.", cd:30},
+  {id:"bjorn",    name:"Bjorn Ironside",color:"#94a3b8", dark:"#475569", female:false, ability:"Axe Throw",         desc:"Throw axe forward. 3 charges, 15s regen each.", cd:15},
+  {id:"achilles", name:"Achilles",      color:"#f87171", dark:"#dc2626", female:false, ability:"Spear Spin",        desc:"Spinning spears orbit you for 3s — damages enemies.", cd:15},
   {id:"suntzu",   name:"Sun Tzu",       color:"#4ade80", dark:"#16a34a", female:false, ability:"Strategic Insight", desc:"Reveals bomb zones and timers for 8s.", cd:20},
-  {id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Toss",       desc:"Throw bombs forward 3 tiles for 5s.", cd:30},
+  {id:"blackbeard",name:"Blackbeard",   color:"#c084fc", dark:"#7c3aed", female:false, ability:"Powder Toss",       desc:"Throw bombs forward 3 tiles for 5s.", cd:15},
 ];
 
 // ── Sound ─────────────────────────────────────────────────────────────────────
@@ -966,14 +972,83 @@ function renderHUD(players) {
   let html = "";
   for (const p of players) {
     const h = heroOf(p);
-    const maxCD = h.cd || 30;
-    const cdp = p.abilityCD > 0 ? Math.round((1 - p.abilityCD / maxCD) * 100) : 100;
     const maxHP = p.hero === "cleo" ? 4 : 3;
+    const hearts = "♥".repeat(Math.max(0,p.hp)) + "♡".repeat(Math.max(0,maxHP-p.hp));
+
+    let abilityHtml = "";
+
+    if (p.hero === "bjorn") {
+      // Charge system — show 3 axe pips
+      const charges = p.axeCharges ?? 3;
+      const regenTimer = p.axeRegenTimer ?? 0;
+      const REGEN_CD = 15;
+
+      let pips = "";
+      for (let i = 0; i < 3; i++) {
+        if (i < charges) {
+          // Full charge — bright axe
+          pips += `<div class="charge-pip">
+            <div class="charge-pip-bg" style="border-color:#94a3b8"></div>
+            <div class="charge-pip-fill" style="height:100%;background:#94a3b855"></div>
+            <div class="charge-pip-icon" style="color:#e2e8f0">🪓</div>
+          </div>`;
+        } else if (i === charges && regenTimer > 0) {
+          // Actively recharging — show fill progress
+          const pct = Math.round((1 - regenTimer / REGEN_CD) * 100);
+          pips += `<div class="charge-pip">
+            <div class="charge-pip-bg" style="border-color:#475569"></div>
+            <div class="charge-pip-fill" style="height:${pct}%;background:#94a3b8aa"></div>
+            <div class="charge-pip-icon" style="color:#475569;filter:grayscale(1)">🪓</div>
+          </div>`;
+        } else {
+          // Spent — dark empty pip
+          pips += `<div class="charge-pip">
+            <div class="charge-pip-bg"></div>
+            <div class="charge-pip-icon" style="color:#1e293b">🪓</div>
+          </div>`;
+        }
+      }
+
+      const label = charges === 0 ? `<span style="color:#475569;font-size:8px">NO CHARGES</span>`
+                  : charges === 3 ? `<span style="color:#94a3b8;font-size:8px">AXE THROW</span>`
+                  : `<span style="color:#94a3b8;font-size:8px">${charges}/3 CHARGES</span>`;
+
+      abilityHtml = `
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+          ${label}
+        </div>
+        <div class="phud-charges">${pips}</div>`;
+
+    } else if (p.hero === "cleo") {
+      // Passive — simple label, no bar
+      const used = p.abilityUsed;
+      abilityHtml = `
+        <div class="phud-hero" style="color:${h.color}">${h.ability}</div>
+        <div style="font-size:8px;color:${used ? '#475569' : '#4ade80'};letter-spacing:1px">
+          ${used ? '✗ USED' : '✓ READY'}
+        </div>`;
+
+    } else {
+      // Standard cooldown bar
+      const maxCD = h.cd || 30;
+      const cdp = p.abilityCD > 0 ? Math.round((1 - p.abilityCD / maxCD) * 100) : 100;
+      const ready = p.abilityCD <= 0;
+      abilityHtml = `
+        <div class="phud-hero" style="color:${ready ? h.color : 'var(--muted)'}">
+          ${h.ability}${ready ? '' : ` · ${Math.ceil(p.abilityCD)}s`}
+        </div>
+        <div class="phud-cdbar">
+          <div class="phud-cdfill" style="width:${cdp}%;background:${h.color}"></div>
+        </div>`;
+    }
+
     html += `<div class="phud${p.dead ? " dead" : ""}" style="border-color:${p.color}66">
-      <div class="phud-top"><div class="phud-dot" style="background:${p.color}"></div><span class="phud-name" style="color:${p.color}">${p.name}</span></div>
-      <div class="phud-hearts">${"♥".repeat(Math.max(0, p.hp))}${"♡".repeat(Math.max(0, maxHP - p.hp))}</div>
-      <div class="phud-hero" style="color:${h.color}">${h.ability}</div>
-      <div class="phud-cdbar"><div class="phud-cdfill" style="width:${cdp}%;background:${h.color}"></div></div>
+      <div class="phud-top">
+        <div class="phud-dot" style="background:${p.color}"></div>
+        <span class="phud-name" style="color:${p.color}">${p.name}</span>
+      </div>
+      <div class="phud-hearts">${hearts}</div>
+      ${abilityHtml}
     </div>`;
   }
   $("game-hud").innerHTML = html;
