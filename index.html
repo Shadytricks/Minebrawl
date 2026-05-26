@@ -57,7 +57,7 @@ input[type=text]::placeholder{color:var(--dim);}
 .hbtn-name{font-size:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .hbtn.sel .hbtn-name{color:var(--hc);font-weight:bold;}
 .hbtn-ab{font-size:7px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.hero-info{background:var(--surf2);border:1px solid var(--bord);border-radius:8px;padding:10px 14px;font-size:10px;color:var(--muted);min-height:36px;margin-top:4px;}
+.hero-info{background:var(--surf2);border:1px solid var(--bord);border-radius:8px;padding:10px 14px;font-size:10px;color:var(--muted);height:58px;margin-top:4px;overflow:hidden;}
 .hero-info strong{display:block;font-size:11px;margin-bottom:3px;}
 
 /* Lobby */
@@ -616,7 +616,7 @@ function buildHeroGrid(containerId, infoId) {
     btn.dataset.gridId = containerId;
 
     const cv = document.createElement("canvas");
-    cv.width = 44; cv.height = 52;
+    cv.width = 52; cv.height = 60;
     cv.dataset.heroCanvas = h.id; // so we can find it later
     const ctx2=cv.getContext("2d");
     drawHeroCardSprite(ctx2, h.id, cv.width, cv.height);
